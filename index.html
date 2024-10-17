@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <!-- Required meta tags -->
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+        <!-- Libraries CSS Files -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.2/css/all.css" integrity="sha384-Ex0vLvgbKZTFlqEetkjk2iUgM+H5udpQKFKjBoGFwPaHRGhiWyVI6jLz/3fBm5ht" crossorigin="anonymous">
+        <link rel="stylesheet" href="./css/scrollbar-plugin.css" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/css/bootstrap-select.min.css" integrity="sha384-2SvkxRa9G/GlZMyFexHk+WN9p0n2T+r38dvBmw5l2/J3gjUcxs9R1GwKs0seeSh3" crossorigin="anonymous">
+
+        <!-- Bootstrap core CSS -->
+        <link rel="stylesheet" href="./css/bootstrap.min.css" crossorigin="anonymous">
+
+        <!-- Favicons -->
+        <link rel="apple-touch-icon" sizes="180x180" href="https://developers.rsk.co/assets/img/favicons/apple-touch-icon.png" crossorigin="anonymous">
+        <link rel="icon" type="image/png" sizes="32x32" href="https://developers.rsk.co/assets/img/favicons/favicon-32x32.png" crossorigin="anonymous">
+        <link rel="icon" type="image/png" sizes="16x16" href="https://developers.rsk.co/assets/img/favicons/favicon-16x16.png" crossorigin="anonymous">
+        <link rel="shortcut icon" href="https://developers.rsk.co/assets/img/favicons/favicon.ico" crossorigin="anonymous">
+
+        <!-- Google Fonts -->
+        <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;700&family=Rubik&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+
+        <!-- Main Stylesheet File -->
+        <link href="https://developers.rsk.co/assets/css/styles.css" rel="stylesheet">
+        <link href="https://developers.rsk.co/assets/css/styles_dark.css" rel="stylesheet" disabled="">
+        <link href="https://developers.rsk.co/assets/css/code.css" rel="stylesheet">
+
+        <!-- Global site tag (gtag.js) - Google Analytics -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=UA-170082381-1"></script>
+        <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'UA-170082381-1');
+        </script>
+
+        <!-- SEO -->
+        <title>Token Bridge between RSK and Ethereum</title>
+        <meta name=”description” content=”The Token Bridge  between RSK and Ethereum allows to cross ERC20 tokens back and forth between the two blockchains.”>
+        <meta name="keywords" content="Token, Bridge, RSK, Ethereum, blockchain, token, crypto, ERC20">
+        <meta name="author" content="RSK">
+        <!-- Hotjar Tracking Code for https://tokenbridge.rsk.co/ -->
+        <script>
+            (function(h,o,t,j,a,r){
+                h.hj=h.hj||function(){(h.hj.q=h.hj.q||[]).push(arguments)};
+                h._hjSettings={hjid:1893104,hjsv:6};
+                a=o.getElementsByTagName('head')[0];
+                r=o.createElement('script');r.async=1;
+                r.src=t+h._hjSettings.hjid+j+h._hjSettings.hjsv;
+                a.appendChild(r);
+            })(window,document,'https://static.hotjar.com/c/hotjar-','.js?sv=');
+        </script>
+        <!-- Custom Styles -->
+        <link href="./css/customStyles.css" rel="stylesheet">
+    </head>
+    <body>
+        <section id="main">
+            <!-- Navigation -->
+            <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+                <div class="container">
+                    <a class="navbar-brand" href="https://rsk.co">
+                        <img src="https://hathor.network/wp-content/uploads/2023/10/Logo-Black-350px.svg"
+                            class="logo alt="">
+                    </a>
+                    <div class="wallet-status navbar-item indicator badge-outline badge-pill" style="display: none;">
+                        <span aria-describedby="tooltip-status" class="fromNetwork">Network</span>
+                    </div>
+                    <button class="navbar-toggler collapsed" type="button" data-toggle="collapse" data-target="#navbarResponsive" aria-controls="navbarResponsive" aria-expanded="false" aria-label="Toggle navigation">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="navbar-collapse collapse" id="navbarResponsive">
+                        <div class="wallet-status navbar-item badge-pill text-truncate" style="width: 85px; display: none;">
+                            <span id="address">0x123456789</span>
+                        </div>
+                        <div class="navbar-item ml-auto">
+                            <button id="claimTokens" type="button" class="btn btn-primary badge-pill">
+                                <span>Want to claim your tokens?</span>
+                                <span style="display: none;;">Want to send tokens to Hathor?</span>
+                            </button>
+                        </div>
+                        <div class="navbar-item ml-auto" >
+                            <button id="logIn" type="button" class="btn btn-primary badge-pill">
+                                Connect wallet
+                            </button>
+                            <a id="help" href="https://gitter.im/rsksmart/tokenbridge#" style="display: none;">
+                                Do you need help?
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+            <div class="navbar_bottom_shape"></div>
+            <section id="home">
+              <div class="container">
+                <div class="title">
+                    <h1 id="title">Hathor bridge with Ethereum</h1>
+                    <h5 class="subtitle">You can convert your tokens from Hathor to Ethereum and viceversa.</h5>
+                    <h5 style="display: none;" class="subtitle">You can claim the tokens you send from Hathor.</h5>
+                </div>
+                <!--Begin of transferTab-->
+                <div id="transferTab" class="align-center disabled">
+                    <div class="row justify-content-center network">
+                        <div class="col-4 text-center">
+                            <span class="fromNetwork">From Network</span>
+                        </div>
+                        <div class="col-4 col-md-3 text-center">
+                            <!-- <span id="changeNetwork" class="outline-rounded" style="padding-left: 1.5rem; padding-right: 1.5rem;">
+                                <i class="fas fa-exchange-alt"></i>
+                            </span> -->
+                        </div>
+                        <div class="col-4 text-center">
+                            <span class="toNetwork">To Network</span>
+                        </div>
+                    </div>
+                    <form id="crossForm" name="crossForm">
+                        <div class="row justify-content-center inputs-area mb-3">
+                            <div class="col-4 text-center">
+                                <label class="tokenAddress-label" for="tokenAddress">You own</label>
+                                <div class="input-group">
+                                    <select class="selectpicker" id="tokenAddress" name="tokenAddress" data-width="100%" title="Select token" disabled required>
+                                        <!-- Dinamic content made with JS -->
+                                    </select>
+                                </div>
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="col-4 col-md-3 text-center">
+                                <label class="amount-label" for="amount"><a id="max" class="max">Max</a></label>
+                                <div class="form-group amount">
+                                    <input name="amount" id="amount" class="outline form-control text-center align-center" placeholder="Amount" required>
+                                    <div class="invalid-feedback"></div>
+                                </div>
+                            </div>
+                            <div class="col-4 text-center">
+                                <div class="form-group willReceive">
+                                    <label class="willReceive-label" for="willReceive">You will receive</label>
+                                    <div class="input-group">
+                                        <div class="form-control-plaintext" id="willReceive" name="willReceive">
+                                            <span id="willReceiveToken" class="willReceiveToken" name="willReceiveToken"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group willReceive">
+                                <label class="hathorAddress-label" for="hathorAddress">Which Hathor Address do you want to send the tokens:</label>
+                                <div class="input-group">
+                                    <div class="form-control-plaintext" id="htrAddress" name="htrAddress">
+                                        <input name="hathorAddress" id="hathorAddress" class="outline form-control text-center align-center"
+                                            placeholder="Hathor Address" required>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="" style="min-height: 60px;">
+                            <div class="fees text-center mt-2" style="display:none">
+                                <p>Service fee: <span id="serviceFee"></span> <span class="selectedToken"></span></p>
+                                <p>Total cost: <span class="black"><span id="totalCost"></span> <span class="selectedToken"></span></span></p>
+                            </div>
+                        </div>
+
+                        <div class="row justify-content-center">
+                            <div class="mt-2">Estimated time to cross tokens <b id="timeToCross"></b></div>
+                        </div>
+                        <div class="row justify-content-center">
+                            <div class="approve-deposit">
+                                <button disabled id="approve" class="btn btn-primary mr-3 mt-3 mb-3">Approve</button>
+                                <div class="form-check">
+                                    <input disabled checked type="checkbox" class="form-check-input" id="doNotAskAgain">
+                                    <label class="form-check-label" for="doNotAskAgain">Do not ask me again</label>
+                                </div>
+                            </div>
+                            <button disbaled id="deposit" type="submit" class="btn btn-primary ml-3 mt-3 mb-3">Convert tokens</button>
+                        </div>
+
+                        <div id="wait" class="mt-3 align-center text-center" style="max-width:350px; line-height: 16px; display:none;">
+                            <!-- Spinner <div class="spinner-border mb-4" style="height:70px; width:70px"></div> -->
+                            <!-- https://tobiasahlin.com/spinkit/ -->
+                            <div class="sk-fading-circle">
+                                <div class="sk-circle1 sk-circle"></div>
+                                <div class="sk-circle2 sk-circle"></div>
+                                <div class="sk-circle3 sk-circle"></div>
+                                <div class="sk-circle4 sk-circle"></div>
+                                <div class="sk-circle5 sk-circle"></div>
+                                <div class="sk-circle6 sk-circle"></div>
+                                <div class="sk-circle7 sk-circle"></div>
+                                <div class="sk-circle8 sk-circle"></div>
+                                <div class="sk-circle9 sk-circle"></div>
+                                <div class="sk-circle10 sk-circle"></div>
+                                <div class="sk-circle11 sk-circle"></div>
+                                <div class="sk-circle12 sk-circle"></div>
+                            </div>
+                            <div class="mt-2">
+                                Wait for aproximately <b><span id="secondsPerBlock">X</span> seconds:</b>
+                                the waiting period is required to confirm the transaction on the blockchain.
+                                Please <b>do not close this tab</b> until the process has finished.
+                            </div>
+                        </div>
+
+                        <div id="success" class="mt-3 align-center text-center alert alert-dismissible fade show" style="display:none;">
+                            <div class="outline-rounded">
+                                <div style="font-size: 32px;"><i class="fas fa-check"></i></div>
+                                <div>You will receive <span id="receive" class="black">126 rKovDAI</span> in your wallet in aproximately <span id="confirmationTime">X minutes</span></div>
+                                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <div id="alert-danger" class="alert alert-danger alert-dismissible fade show" role="alert" style="display:none">
+                                <h4 class="alert-heading">Ups! there was an error</h4>
+                                <p id="alert-danger-text"></p>
+                                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                  </button>
+                            </div>
+                        </div>
+                    </form>
+                </div> 
+                <!--End of transferTab-->
+
+                <!--Begin of claimTab-->
+                <div id="claimTab" class="align-center">
+                    <form id="claimForm" name="claimForm">
+                        <div class="row justify-content-center inputs-area mb-3">
+                            <div class="col-12 text-center">
+                                <div class="form-group claim">
+                                    <div class="form-group claim">
+                                        <label class="hathorAddress-label" for="hathorAddress">Input your hathor transaction ID</label>
+                                        <div class="input-group">
+                                            <div class="form-control-plaintext" id="htrTxId" name="htrTxId">
+                                                <input name="hathorTxId" id="hathorTxId" class="outline form-control text-center align-center"
+                                                    placeholder="000001070fabe20af3d5478cfaf185b47b4ef9d164a231f1de8e50682af8e6de" required>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>    
+                        <div class="row justify-content-center">
+                            <div class="mt-2"><div id="claimSearched" style="display:none;"></div></div>
+                        </div>
+                        <div class="row justify-content-center">
+                            <div class="search-claim">
+                                <button id="searchClaim" class="btn btn-primary mr-3 mt-3 mb-3">Search transfer</button>
+                            </div>
+                            <button disabled id="claim" class="btn btn-primary ml-3 mt-3 mb-3">Claim tokens</button>
+                        </div>
+                
+                        <div id="wait_claim" class="mt-3 align-center text-center" style="max-width:350px; line-height: 16px; display:none;">
+                            <!-- Spinner <div class="spinner-border mb-4" style="height:70px; width:70px"></div> -->
+                            <!-- https://tobiasahlin.com/spinkit/ -->
+                            <div class="sk-fading-circle">
+                                <div class="sk-circle1 sk-circle"></div>
+                                <div class="sk-circle2 sk-circle"></div>
+                                <div class="sk-circle3 sk-circle"></div>
+                                <div class="sk-circle4 sk-circle"></div>
+                                <div class="sk-circle5 sk-circle"></div>
+                                <div class="sk-circle6 sk-circle"></div>
+                                <div class="sk-circle7 sk-circle"></div>
+                                <div class="sk-circle8 sk-circle"></div>
+                                <div class="sk-circle9 sk-circle"></div>
+                                <div class="sk-circle10 sk-circle"></div>
+                                <div class="sk-circle11 sk-circle"></div>
+                                <div class="sk-circle12 sk-circle"></div>
+                            </div>
+                            <div class="mt-2">
+                                Wait for aproximately <b><span id="secondsPerBlock_claim">X</span> seconds:</b>
+                                the waiting period is required to confirm the transaction on the blockchain.
+                                Please <b>do not close this tab</b> until the process has finished.
+                            </div>
+                        </div>
+                
+                        <div id="success_claim" class="mt-3 align-center text-center alert alert-dismissible fade show" style="display:none;">
+                            <div class="outline-rounded">
+                                <div style="font-size: 32px;"><i class="fas fa-check"></i></div>
+                                <div>You will receive <span id="receive_claim" class="black">126 rKovDAI</span> in your wallet in aproximately
+                                    <span id="confirmationTime_claim">X minutes</span></div>
+                                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <div id="alert-danger_claim" class="alert alert-danger alert-dismissible fade show" role="alert"
+                                style="display:none">
+                                <h4 class="alert-heading">Ups! there was an error</h4>
+                                <p id="alert-danger-text_claim"></p>
+                                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <!--End of claim Tab-->
+
+                <div id="previousTxnsEmptyTab">
+                    <h5 class="subtitle">Active account transactions</h5>
+                    <p class="text-center">Please note that all transactions listed here will not
+                            appear if you use another device</p>
+                    <h6 class="subtitle">No transactions for active account found</h5>
+                </div>
+
+                <div id="previousTxnsTab">
+                    <h5 class="subtitle">Active account transactions</h5>
+                    <nav>
+                        <div class="nav nav-tabs" id="nav-tab" role="tablist">
+                            <a class="nav-item nav-link active" id="nav-rsk-eth-tab" data-toggle="tab" href="#nav-rsk-eth" role="tab" aria-controls="nav-rsk-eth" aria-selected="true">ETH -> HTR</a>
+                            <a class="nav-item nav-link" id="nav-eth-rsk-tab" data-toggle="tab" href="#nav-eth-rsk" role="tab" aria-controls="nav-eth-rsk" aria-selected="false">HTR -> ETH</a>
+                        </div>
+                    </nav>
+                        <div class="tab-content" id="nav-tabContent">
+                            <div class="tab-pane fade show active" id="nav-rsk-eth" role="tabpanel" aria-labelledby="nav-rsk-eth-tab">
+                                <table class="table">
+                                    <thead>
+                                      <tr>
+                                        <th scope="col">Txn hash</th>
+                                        <th scope="col">Block number</th>
+                                        <th scope="col">Amount</th>
+                                        <th scope="col">Status | Estimated time</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody id="rsk-eth-tbody">
+                                         <!-- Dinamic content made with JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="tab-pane fade" id="nav-eth-rsk" role="tabpanel" aria-labelledby="nav-eth-rsk-tab">
+                                <!-- Dinamic content made with JS -->
+                                <table class="table">
+                                    <thead>
+                                      <tr>
+                                        <th scope="col">Txn hash</th>
+                                        <th scope="col">Block number</th>
+                                        <th scope="col">Amount</th>
+                                        <th scope="col">Status | Estimated time</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody id="eth-rsk-tbody">
+                                        <!-- Dinamic content made with JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="btn-toolbar" role="toolbar" aria-label="Toolbar with button groups">
+                            <div class="btn-group mr-2" role="group" aria-label="First group">
+                              <button type="button" id="txn-previous" class="btn btn-secondary">< previous</button>
+                              <button type="button" id="txn-next" class="btn btn-secondary">next ></button>
+                            </div>
+                        </div>
+                </div>
+
+                <div id="tokensTab">
+                    <h5 class="subtitle">Token bridge list</h5>
+                    <p class="text-center">Hathor native tokens will transform into e(tokenName). Ethereum native tokens will transform into h(tokenName)</p>
+                    <div id="tokenListTab" class="align-center">
+                        <!-- Dinamic content made with JS -->
+                    </div>
+                </div>
+
+                <div id="infoTab">
+                    <h5 class="subtitle">Important details</h5>
+                    <div class="row mb-5">
+                        <div class="col-md-4 col-sm-4 mb-5 config-section">
+                            <span class="config-value mb-2" id="config-max">-</span>
+                            <span class="config-title">Max transfer allowed</span>
+                            <p>
+                                The max value of tokens that can be tranferred per day
+                            </p>
+                        </div>
+                        <div class="col-md-4 col-sm-4 mb-5 config-section">
+                            <span class="config-value mb-2" id="config-min">-</span>
+                            <span class="config-title">Min transfer allowed</span>
+                            <p>
+                                The min value of tokens that can be transferred per day
+                            </p>
+                        </div>
+                        <div class="col-md-4 col-sm-4 mb-5 config-section">
+                            <span class="config-value mb-2" id="config-to-spend">-</span>
+                            <span class="config-title">Daily transfer limit</span>
+                            <p>
+                                How many tokens can be tranferred today
+                            </p>
+                        </div>
+                        <div class="col-md-4 col-sm-4 mb-5 config-section">
+                            <span class="config-value mb-2" id="config-fee">-</span>
+                            <span class="config-title">Fee</span>
+                            <p>
+                                This is the fee required for transfer tokens between networks
+                            </p>
+                        </div>
+                        <div class="col-md-4 col-sm-4 mb-5 config-section">
+                            <div>
+                                <span class="config-value mb-2 ml-2" id="config-federators-count">-</span>
+                            </div>
+                            <span class="config-title">Federators</span>
+                            <p>
+                                The Authorities will vote the transactions to cross during the trial period. Once we implement the decentralized bridge there will be no authorities as its a fully trustless solution
+                            </p>
+                        </div>
+                        <div class="col-md-4 col-sm-4 mb-5 config-section">
+                            <span class="config-value mb-2" id="config-whitelisted-enabled">-</span>
+                            <span class="config-title">Crossing period</span>
+                            <p>
+                                Time needed to have enough confirmations to securely cross assets to the other network
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div> <!--- End Tab Content -->
+          </div>
+        </section>
+        <!-- Modal -->
+        <div id="myModal" class="modal fade" tabindex="-1" role="dialog">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title"></h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <footer id="footer" class="section-bg">
+            <div class="footer-top">
+            <div class="container">
+               <div class="row">
+                  <div class="col-lg-12" style="color: #ff8200">
+                  </div>
+               </div>
+               <div class="row">
+                  <div class="col-lg-6">
+                     <div class="row">
+                        <div class="col-sm-7">
+                           <div class="footer-info">
+                              <a href="https://developers.rsk.co/" rel="nofollow noopener noreferrer" target="_blank" class="footer-button rounded" title="Start now">Start now</a>
+                           </div>
+                        </div>
+                        <div class="col-sm-5"></div>
+                     </div>
+                  </div>
+                  <div class="col-lg-6">
+                     <div class="row">
+                        <div class="col-md-6">
+                           <div class="footer-links">
+                              <ul>
+                                 <li><a href="https://developers.rsk.co/tools/tokenbridge/dappguide" target="_blank">How to use it?</a></li>
+                                 <li><a href="https://developers.rsk.co/tools/tokenbridge/faq/">FAQ</a></li>
+                                 <li><a href="https://github.com/rsksmart/tokenbridge" target="_blank">Repository</a></li>
+                                 <li><a id="get-rbtc-navlink" href="https://coinswitch.rsk.co/" target="_blank">Get RBTC</a></li>
+                                 <li><a id="network-navlink" href="https://testnet.tokenbridge.rsk.co">Use Testnet</a></li>
+                                 <li><a href="https://developers.rsk.co/tools/tokenbridge" rel="nofollow noopener noreferrer" target="_blank" class="footer-button" title="Documentation">Documentation</a></li>
+                              </ul>
+                           </div>
+                        </div>
+                        <div class="col-md-6">
+                           <div class="footer-links">
+                              <ul>
+                                <li><a href="https://www.iovlabs.org" rel="nofollow noopener noreferrer" target="_blank">About IOVlabs</a></li>
+                                <li><a href="https://www.iovlabs.org/contact.html" rel="nofollow noopener noreferrer" target="_blank">Contact IOVlabs</a></li>
+                                <li><a href="https://blog.rsk.co/" rel="nofollow noopener noreferrer" target="_blank">Blog</a></li>
+                                <li><a class="bold" href="https://www.rsk.co/Brand_Guidelines/RSK_BrandManual_V6.pdf" rel="nofollow noopener noreferrer" target="_blank">Brand Guidelines</a></li>
+                                <li><a class="bold" href="https://www.rsk.co/terms-conditions">Terms &amp; Conditions</a></li>
+                                <li><a class="bold mb-30" href="https://www.rsk.co/privacy-policy">Privacy Policy</a></li>
+                              </ul>
+                           </div>
+                        </div>
+                     </div>
+                     <div class="social-links">
+                        <a href="https://twitter.com/rsksmart" rel="nofollow noopener noreferrer" target="_blank" class="twitter"><i class="fab fa-twitter"></i></a>
+                        <a href="https://www.youtube.com/rsksmart" rel="nofollow noopener noreferrer" target="_blank" class="facebook"><i class="fab fa-youtube"></i></a>
+                        <a href=" https://www.facebook.com/RSKsmart/" rel="nofollow noopener noreferrer" target="_blank" class="linkedin"><i class="fab fa-facebook"></i></a>
+                        <a href="https://gitter.im/rsksmart" rel="nofollow noopener noreferrer" target="_blank" class="instagram"><i class="fab fa-gitter"></i></a>
+                        <a href="https://www.reddit.com/r/rootstock/" rel="nofollow noopener noreferrer" target="_blank" class="instagram"><i class="fab fa-reddit"></i></a>
+                        <a href="https://t.me/rskofficialcommunity" rel="nofollow noopener noreferrer" target="_blank" class="instagram"><i class="fab fa-telegram"></i></a>
+                        <a href="https://medium.com/@RSKNews" rel="nofollow noopener noreferrer" target="_blank" class="instagram"><i class="fab fa-medium"></i></a>
+                        <a href="https://t.me/rsksmartcontract" rel="nofollow noopener noreferrer" target="_blank" class="instagram"><i class="fab fa-telegram"></i></a>
+                        <a href="https://www.instagram.com/rsksmart/" rel="nofollow noopener noreferrer" target="_blank" class=""><i class="fab fa-instagram"></i></a>
+                        <a href="https://bitcointalk.org/index.php?topic=5124334" rel="nofollow noopener noreferrer" target="_blank" class=""><i class="fab fa-btc"></i></a>
+                     </div>
+                  </div>
+               </div>
+            </div>
+            <div class="container">
+               <div class="col-md-12">
+                  <div class="row">
+                     <div class="col-md-6 col-xs-12 pl-0-mobile">
+                        <p class="copyright">Copyright © 2015 RSK Labs. All rights reserved.</p>
+                     </div>
+                     <div class="col-md-6 col-xs-12 pl-0-mobile">
+                        <p class="credits"> RSK Public Key (69F6 F997 2497 8762 D541 8AE4 58D2 260D 5998 6758)</p>
+                     </div>
+                  </div>
+               </div>
+            </div>
+         </div>
+        </footer>
+        <div id="js">
+            <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.slim.min.js" integrity="sha512-/DXTXr6nQodMUiq+IUJYCt2PPOUjrHJ9wFrqpJ3XkgPNOZVfMok7cRw6CSxyCQxXn6ozlESsSh1/sMCTF1rL/g==" crossorigin="anonymous"></script>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+            <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+            <!-- Bootstrap Select https://developer.snapappointments.com/bootstrap-select/ -->
+            <script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/js/bootstrap-select.min.js" integrity="sha384-SfMwgGnc3UiUUZF50PsPetXLqH2HSl/FmkMW/Ja3N2WaJ/fHLbCHPUsXzzrM6aet" crossorigin="anonymous"></script>
+            <!-- Updated Web3.js as MetaMsak uses 0.20.7 version -->
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.2.2/web3.min.js" integrity="sha384-5twr//DBZLxyCKhyQ993lJO6PM05f8HW/rTdv6zWhe8xgS8XAHH15oIcGFBTdwmM" crossorigin="anonymous"></script>
+            <!-- bignumber.js -->
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/bignumber.js/9.0.0/bignumber.min.js" integrity="sha384-W92bSiy/NxoN+p5YNhm8ybWnIFnqtH0/Bxc4l9jojSsPK2KQdOvQonrRBon0O/om" crossorigin="anonymous"></script>
+            <!-- Copy to Clipboard https://clipboardjs.com/ -->
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.4/clipboard.min.js" integrity="sha384-8CYhPwYlLELodlcQV713V9ZikA3DlCVaXFDpjHfP8Z36gpddf/Vrt47XmKDsCttu" crossorigin="anonymous"></script>
+            <!-- rLogin -->
+            <script src="https://unpkg.com/@rsksmart/rlogin@0.1.1/dist/main.js" integrity="sha384-BxkfkiqvSWCwmBJpdpHlhY1vJDZj/fYQI76nvqsTCMoYgoJEWGXQW2O/1wqNeudb" crossorigin="anonymous"></script>
+            <!-- Wallet Connect -->
+            <script src="https://unpkg.com/@walletconnect/web3-provider@1.3.1/dist/umd/index.min.js" integrity="sha384-DOJahViDNA9y40Y+NIb/qcO4Cxfe58MRJvtlIzdHdHRrnnhppgFGnipStRNW2DXG" crossorigin="anonymous"></script>
+            <!-- async-await-retry  https://github.com/VoodooTeam/async-await-retry -->
+            <script src="./txns-storage.js"></script>
+            <!--- local Storage Static utilities -->
+            <script type="text/javascript" src="./js/localStorage.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
+            <!-- Custom Js -->
+            <script type="text/javascript" src="./js/index.js"></script>
+        </div>
+    </body>
+</html>
