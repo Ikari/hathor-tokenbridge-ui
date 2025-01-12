@@ -54,19 +54,6 @@ $(document).ready(function() {
         crossDisabled: true
     });
 
-    disableClaim({
-        searchDisable: true,
-        claimDisabled: true
-    });
-
-    $('#hathorTxId').keyup(function(event) {
-        if ($(this).val().trim() !== ''){
-            disableClaim({ searchDisable: false, claimDisabled: true });
-            return;
-        }
-        disableClaim({ searchDisable: true, claimDisabled: true });
-    });
-
     $('#logIn').attr('onclick', 'onLogInClick()');
 
     let rpc = {
@@ -96,11 +83,6 @@ $(document).ready(function() {
 
     $('#claimTokens').click(function(){ 
         changeToClaim();
-    });
-
-    $('#searchClaim').on('click', function(e) { 
-        e.preventDefault();
-        getPendingClaims();
     });
 
     $('#claim').on('click', function(e) { 
@@ -164,6 +146,73 @@ async function changeToClaim() {
     $('.subtitle').toggle();
     $('#transferTab').toggle();
     $('#claimTab').toggle();
+    const claims = await getPendingClaims();
+    fillClaims(claims);
+
+}
+
+async function fillClaims(claims) {
+
+    let html = `
+    <div class="text-left mt-2">
+        <table class="claim-table">
+        <tr>
+            <th>Token</th>
+            <th>Sender</th>
+            <th>Receiver</th>
+            <th>Amount</th>
+            <th></th>
+        </tr>`
+
+    for (const claim of claims) {
+        const { _originalTokenAddress, _from, _to, _amount, _blockHash, _logIndex, _originChainId, isClaimed } = claim;
+
+        const tk = TOKENS.find((token) => token[31].address === _originalTokenAddress);
+
+        html += 
+        `
+            <tr>
+                <td>${tk.name}</td>
+                <td>${_from}</td>
+                <td>${_to}</td>
+                <td>${web3.utils.fromWei(_amount, 'ether')}</td>
+                <td>
+                    <!-- Claim button -->
+                    ${isClaimed ? 
+                        '<button class="btn btn-primary claim-button" disabled>Claimed</button>' : 
+                        `<button 
+                            class="btn btn-primary claim-button" 
+                            data-to="${_to}" 
+                            data-amount="${_amount}" 
+                            data-blockhash="${_blockHash}" 
+                            data-logindex="${_logIndex}" 
+                            data-originchainid="${_originChainId}">
+                            Claim
+                        </button>`
+                    }
+                </td>
+            </tr>
+        `;
+    }
+
+    html += `</table></div>`
+
+    $('#claims').html(html);
+
+    // Add an event listener after rendering the buttons
+    document.querySelectorAll('.claim-button:not([disabled])').forEach(button => {
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+
+            const to = button.getAttribute('data-to');
+            const amount = button.getAttribute('data-amount');
+            const blockHash = button.getAttribute('data-blockhash');
+            const logIndex = button.getAttribute('data-logindex');
+            const originChainId = button.getAttribute('data-originchainid');
+
+            claimToken(to, amount, blockHash, logIndex, originChainId);
+        });
+    });
 }
 
 async function waitForReceipt(txHash) {
@@ -233,14 +282,19 @@ function onNextTxnClick() {
 
 async function getPendingClaims() {
     console.log('evaluating past claims...')
-    const events = await bridgeContract.getPastEvents('AcceptedCrossTransfer', {
-        fromBlock: '6685624',
-        toBlock: '6764459',
+    const events = await bridgeContract.getPastEvents('AllEvents', {
+        fromBlock: '7375385'
     });
-    console.log(`${events.length} events found...`);
-    for (const event of events) {
-        await handleAcceptedCrossTransferEvent(event);
+    const walletAddress = $('#address').text();
+    const crossTransferEvents = events.filter((evt) => evt.event === 'AcceptedCrossTransfer' && evt.returnValues._to === walletAddress);
+    console.log(`${crossTransferEvents.length} events found...`);
+    const claims = [];
+    for (const event of crossTransferEvents) {
+        const claim = await handleAcceptedCrossTransferEvent(event);
+        claims.push(claim);
     }
+
+    return claims;
 }
 
 async function handleAcceptedCrossTransferEvent(event) {
@@ -273,18 +327,22 @@ async function handleAcceptedCrossTransferEvent(event) {
         _logIndex, 
         _originChainId, 
         _destinationChainId
-    );
+    ).call();
 
-    console.log(`Data Hash is: ${txDataHash}`);
+    const isClaimed = await bridgeContract.methods.isClaimed(txDataHash, txDataHash).call();
 
-    const isClaimed = await bridgeContract.methods.isClaimed(txDataHash, txDataHash);
+    const transaction = {
+        _from,
+        _originalTokenAddress,
+        _to,
+        _amount,
+        _blockHash,
+        _logIndex,
+        _originChainId,
+        isClaimed,
+    };
 
-    if (!isClaimed) {
-        console.log('claimed')
-        return;
-    }
-
-    console.log('not claimed');
+    return transaction;
 }
 
 async function setInfoTab() {
@@ -579,7 +637,7 @@ function errorClaim(error) {
     $('#alert-danger_claim').focus();
 }
 
-async function claimToken() {
+async function claimToken(to, amount, blockHash, logIndex, originChainId) {
     cleanAlertErrorClaim();
     cleanAlertSuccessClaim();
     
@@ -588,36 +646,11 @@ async function claimToken() {
         return;
     }
 
-    const claim = JSON.parse($('#claimResult').html())
-
-    if (!claim) {
-        errorClaim('Claim not found.');
-        return;
-    }
-
-    const receiver = claim.to;
-    const amount = claim.amount;
-    const blockHash = claim.blockHash;
-    const transactionHash = claim.transactionHash;
-    const logIndex = claim.logIndex;
-    const originChainId = claim.originChainId;
-    const destinationChainId = 80001;
-
-    let transactionId = await retry3Times(bridgeContract.methods.getTransactionDataHash(
-        receiver,
-        amount,
-        blockHash,
-        transactionHash,
-        logIndex,
-        originChainId,
-        destinationChainId,
-    ).call);
-  
-    const isClaimed = await retry3Times(bridgeContract.methods.claimed(transactionId).call);
-    if (isClaimed) {
-        errorClaim('Transaction already claimed.');
-        return;
-    }
+    console.log(to);
+    console.log(amount);
+    console.log(blockHash);
+    console.log(logIndex);
+    console.log(originChainId);
 
     var gasPriceParsed = 0;
     if(config.networkId >= 30 && config.networkId <= 33) {
@@ -633,12 +666,13 @@ async function claimToken() {
 
     const txHash = await bridgeContract.methods
         .claim({
-            to: receiver, 
+            to: to, 
             amount: amount, 
             blockHash: blockHash, 
-            transactionHash: transactionHash, 
+            transactionHash: blockHash, 
             logIndex: logIndex, 
-            originChainId: originChainId})
+            originChainId: originChainId
+        })
         .send({from: address, gasPrice:gasPrice, gas:200_000})
         .catch((err) => {
             console.log(err);
@@ -680,7 +714,6 @@ function crossTokenError(err) {
 
     disableInputs(false);
 }
-
 
 async function checkAllowance() {
     cleanAlertSuccess();
@@ -838,11 +871,10 @@ function onMetaMaskConnectionError(err) {
 }
 
 function showModal(title, message){
-        $('#myModal .modal-title').html(title)
-        $('#myModal .modal-body').html(`<p>${message}</p>`)
-        $('#myModal').modal('show')
-    }
-
+    $('#myModal .modal-title').html(title)
+    $('#myModal .modal-body').html(`<p>${message}</p>`)
+    $('#myModal').modal('show')
+}
 
 function disableApproveCross({
     approvalDisable = true,
@@ -1201,9 +1233,9 @@ async function getAccounts() {
 let SEPOLIA_CONFIG = {
     networkId: 11155111,
     name: 'Sepolia',
-    bridge: '0x9c3af23d1767257171525a4b136d447a87cb13e8',
-    allowTokens: '0x46f7d11498c58529126f1029e9bed6062e2b5346',
-    federation: '0x5ff99359f5b0a5cec7e517280067f3cb6cffa721',
+    bridge: '0x7c17af027693477fc219bd734ff81ad1f07057cf',
+    allowTokens: '0xed6dbc72b1b4ca20ff712624ebf12f45a1c6fa42',
+    federation: '0x02f16662013d32e81514a224bffe2fdfa50e05a6',
     explorer: 'https://sepolia.etherscan.io/',
     explorerTokenTab: '#tokentxns',
     confirmations: 10,
@@ -1213,9 +1245,9 @@ let SEPOLIA_CONFIG = {
 let HTR_TESTNET_CONFIG = {
     networkId: 31,
     name: 'Golf',
-    bridge: '0x9c3af23d1767257171525a4b136d447a87cb13e8',
-    allowTokens: '0x46f7d11498c58529126f1029e9bed6062e2b5346',
-    federation: '0x5ff99359f5b0a5cec7e517280067f3cb6cffa721',
+    bridge: '0x7c17af027693477fc219bd734ff81ad1f07057cf',
+    allowTokens: '0xed6dbc72b1b4ca20ff712624ebf12f45a1c6fa42',
+    federation: '0x02f16662013d32e81514a224bffe2fdfa50e05a6',
     explorer: 'https://explorer.testnet.hathor.network/',
     explorerTokenTab: 'token_detail/',
     confirmations: 2,
@@ -1264,14 +1296,14 @@ const FEDERATION_ABI = [{"anonymous":false,"inputs":[{"indexed":false,"internalT
 // --------- ABI  END --------------
 
 // --------- TOKENS --------------
-const HATHOR_NATIVE_TOKEN = { token: 'hNT2', name: 'Hathor Native Token 2', icon: '',
-    11155111: { symbol: 'hNT2', address: '0x6F7B545D18406a7061eEE478964AeB2030cBBd77', decimals: 18},
-    31: { symbol: 'NT2', address: '00000a17c11f022dd0b31c5059c7c2341e64cbd3c2e8f0508360b574c2bb6175', decimals: 18}
+const HATHOR_NATIVE_TOKEN = { token: 'MTT', name: 'Main Togger Token', icon: '',
+    11155111: { symbol: 'hMTT', address: '0x6F7B545D18406a7061eEE478964AeB2030cBBd77', decimals: 18},
+    31: { symbol: 'MTT', address: '0000100fa10a0557f1541ea0cb039d4ccc8f6a6ad995059fb3596bf30075f6e2', decimals: 18}
 }
 
-const EVM_NATIVE_TOKEN = { token: 'SLT5', name: 'Hathor Native Token 2', icon: '',
-    11155111: { symbol: 'SLT5', address: '0x76c6af5A264A4fA4360432e365F5A80503476415', decimals: 18},
-    31: { symbol: 'hSLT5', address: '00000d22ea79269e96b4797dc9fa8ac0d261fce7c3b55a23866a74d74eb828d2', decimals: 18}
+const EVM_NATIVE_TOKEN = { token: 'SLT5', name: 'Hathor Origin Token', icon: '',
+    11155111: { symbol: 'eHOT', address: '0xD358c04EEFa3DBE94Cb736F3060b6630C50EdfAd', decimals: 18},
+    31: { symbol: 'HOT', address: '0x9Ff7A00f1e9Ca1D3135Cf53eF9E9856A64619b04', decimals: 18}
 }
 
 const TOKENS = [ HATHOR_NATIVE_TOKEN, EVM_NATIVE_TOKEN ];

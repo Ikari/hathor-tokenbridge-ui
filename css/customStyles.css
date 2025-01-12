@@ -692,3 +692,39 @@ table.table tr th:last-child,
 table.table tr td:last-child {
     text-align: center;
 }
+
+.claim-table {
+    width: 100%; /* Garante que a tabela ocupe o espaço disponível */
+    border-collapse: collapse; /* Remove espaços entre bordas */
+    border: 1px solid #ddd; /* Adiciona borda externa */
+    border-radius: 8px; /* Bordas arredondadas */
+    overflow: hidden; /* Impede que bordas arredondadas sejam cortadas */
+}
+
+.claim-table td, .claim-table th {
+    text-align: justify; /* Alinhamento justificado */
+    padding: 8px 12px; /* Padding uniforme */
+    border: 1px solid #ddd; /* Bordas para distinguir colunas */
+}
+
+.claim-table th {
+    background-color: #f4f4f4; /* Cor de fundo para o cabeçalho */
+    font-weight: bold; /* Destaque para o cabeçalho */
+    text-align: center; /* Centraliza o texto no cabeçalho */
+}
+
+.claim-table tr:nth-child(even) {
+    background-color: #f9f9f9; /* Alterna a cor de fundo para linhas pares */
+}
+
+.claim-table tr:hover {
+    background-color: #f1f1f1; /* Destaque na linha ao passar o mouse */
+}
+
+.claim-table td:last-child {
+    text-align: center; /* Centraliza a última coluna */
+}
+
+.claim-table td, .claim-table th {
+    border-radius: 4px; /* Arredonda bordas internas das células */
+}
