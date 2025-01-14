@@ -299,12 +299,15 @@ input::placeholder {
 }
 
 .logo {
-  width: 106px;
+  width: 206px;
   height: auto;
   transition: all 0.5s ease;
 }
 
-.navbar,
+.navbar {
+  margin-top: 15px;
+}
+
 .navbar a {
   font-family: "Rubik";
   color: #71258f;
@@ -317,7 +320,7 @@ a:hover {
 }
 
 .navbar-item {
-  margin-top: 15px;
+  margin-top: 0px;
 }
 
 .nav-tabs .nav-link {

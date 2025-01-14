@@ -36,10 +36,8 @@ $(document).ready(function () {
   if (isTestnet) {
     $("#title").text("Hathor Golf Testnet bridge with Sepolia");
     let navlink = $("#network-navlink");
-    navlink.prop("href", "https://tokenbridge.rsk.co");
+    navlink.prop("href", "http://hathorbridge.xyz");
     navlink.text("Use Mainnet");
-    navlink = $("#get-rbtc-navlink");
-    navlink.prop("href", "https://faucet.rsk.co/");
   }
 
   if (
@@ -1374,11 +1372,11 @@ let ETH_CONFIG = {
 };
 let HTR_MAINNET_CONFIG = {
   networkId: 30,
-  name: "RSK Mainnet",
+  name: "Hathor Mainnet",
   bridge: "0x9d11937e2179dc5270aa86a3f8143232d6da0e69",
   allowTokens: "0xe4aa0f414725c9322a1a9d80d469c5e234786653",
   federation: "0xe37b6516f4fe2a27569a2751c1ad50f6340df369",
-  explorer: "https://explorer.rsk.co",
+  explorer: "https://explorer.hathor.network/",
   explorerTokenTab: "?__tab=tokens%20transfers",
   confirmations: 2880,
   confirmationTime: "24 hours",
