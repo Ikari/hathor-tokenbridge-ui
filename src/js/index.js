@@ -125,6 +125,8 @@ $(document).ready(function () {
       $("#willReceive").html("");
       $("#willReceive-copy").hide();
     }
+
+    setInfoTab(token[11155111].address);
   });
 
   $("#amount").keyup(function (event) {
@@ -392,18 +394,17 @@ async function handleAcceptedCrossTransferEvent(event) {
   return transaction;
 }
 
-async function setInfoTab() {
+async function setInfoTab(tokenAddress) {
   try {
+
+    const {limit} = await allowTokensContract.methods.getInfoAndLimits(tokenAddress).call();
+    
+
     // Dinamically get the values, this is comented as the public node some times throws errors
-    [maxWithdraw, maxAllowed, minAllowed, federators] = await Promise.all([
-      retry3Times(allowTokensContract.methods.dailyLimit().call),
-      retry3Times(allowTokensContract.methods.getMaxTokensAllowed().call),
-      retry3Times(allowTokensContract.methods.getMinTokensAllowed().call),
-      retry3Times(federationContract.methods.getMembers().call),
-    ]);
-    minTokensAllowed = parseInt(web3.utils.fromWei(minAllowed, "ether"));
-    maxTokensAllowed = parseInt(web3.utils.fromWei(maxAllowed, "ether"));
-    maxDailyLimit = parseInt(web3.utils.fromWei(maxWithdraw, "ether"));
+    const federators = await federationContract.methods.getMembers().call();
+    minTokensAllowed = parseInt(web3.utils.fromWei(limit.min, "ether"));
+    maxTokensAllowed = parseInt(web3.utils.fromWei(limit.max, "ether"));
+    maxDailyLimit = parseInt(web3.utils.fromWei(limit.daily, "ether"));
 
     feePercentage = await retry3Times(
       bridgeContract.methods.getFeePercentage().call
@@ -429,32 +430,32 @@ async function setInfoTab() {
 
 async function getMaxBalance(event) {
   //TODO understand if we need to change contract
-  // if(event)
-  //     event.preventDefault();
-  // let tokenToCross = $('#tokenAddress').val();
-  // let token = TOKENS.find(element => element.token == tokenToCross);
-  // if(!token) {
-  //     return;
-  // }
-  // const tokenAddress = token[config.networkId].address;
-  // tokenContract = new web3.eth.Contract(ERC20_ABI, tokenAddress);
-  // const decimals = token[config.networkId].decimals;
-  // return retry3Times(tokenContract.methods.balanceOf(address).call)
-  // .then(async (balance) => {
-  //     balanceBNs = new BigNumber(balance).shiftedBy(-decimals);
-  //     let maxWithdrawInWei = await retry3Times(bridgeContract.methods.calcMaxWithdraw().call);
-  //     let maxWithdraw = new BigNumber(web3.utils.fromWei(maxWithdrawInWei, 'ether'));
-  //     let maxValue = 0;
-  //     if( balanceBNs.isGreaterThan(maxWithdraw)) {
-  //         maxValue = maxWithdraw;
-  //     } else {
-  //         maxValue = balanceBNs;
-  //     }
-  //     let serviceFee = new BigNumber(maxValue).times(fee);
-  //     let value = maxValue.minus(serviceFee).toFixed(decimals, BigNumber.ROUND_DOWN);
-  //     $('#amount').val(value.toString());
-  //     $('#amount').keyup();
-  // });
+  if(event)
+      event.preventDefault();
+  let tokenToCross = $('#tokenAddress').val();
+  let token = TOKENS.find(element => element.token == tokenToCross);
+  if(!token) {
+      return;
+  }
+  const tokenAddress = token[config.networkId].address;
+  tokenContract = new web3.eth.Contract(ERC20_ABI, tokenAddress);
+  const decimals = token[config.networkId].decimals;
+  return retry3Times(tokenContract.methods.balanceOf(address).call)
+  .then(async (balance) => {
+      balanceBNs = new BigNumber(balance).shiftedBy(-decimals);
+      let maxWithdrawInWei = await retry3Times(bridgeContract.methods.calcMaxWithdraw().call);
+      let maxWithdraw = new BigNumber(web3.utils.fromWei(maxWithdrawInWei, 'ether'));
+      let maxValue = 0;
+      if( balanceBNs.isGreaterThan(maxWithdraw)) {
+          maxValue = maxWithdraw;
+      } else {
+          maxValue = balanceBNs;
+      }
+      let serviceFee = new BigNumber(maxValue).times(fee);
+      let value = maxValue.minus(serviceFee).toFixed(decimals, BigNumber.ROUND_DOWN);
+      $('#amount').val(value.toString());
+      $('#amount').keyup();
+  });
 }
 
 async function approveSpend() {
@@ -1220,7 +1221,7 @@ async function updateNetwork(newNetwork) {
     updateNetworkConfig(config);
     updateTokenAddressDropdown(config.networkId);
 
-    setInfoTab();
+    // setInfoTab();
     onMetaMaskConnectionSuccess();
 
     let pollingLastBlockIntervalId = await poll4LastBlockNumber(function (
@@ -1340,7 +1341,7 @@ let SEPOLIA_CONFIG = {
   explorer: "https://sepolia.etherscan.io/",
   explorerTokenTab: "#tokentxns",
   confirmations: 10,
-  confirmationTime: "5 minutes",
+  confirmationTime: "30 minutes",
   secondsPerBlock: 5,
 };
 let HTR_TESTNET_CONFIG = {
@@ -1352,7 +1353,7 @@ let HTR_TESTNET_CONFIG = {
   explorer: "https://explorer.testnet.hathor.network/",
   explorerTokenTab: "token_detail/",
   confirmations: 2,
-  confirmationTime: "50 seconds",
+  confirmationTime: "30 minutes",
   secondsPerBlock: 30,
   crossToNetwork: SEPOLIA_CONFIG,
 };
@@ -2461,281 +2462,952 @@ const BRIDGE_ABI = [
   { stateMutability: "payable", type: "receive" },
 ];
 const ALLOW_TOKENS_ABI = [
-  {
-    inputs: [{ internalType: "address", name: "_manager", type: "address" }],
-    payable: false,
-    stateMutability: "nonpayable",
-    type: "constructor",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "_tokenAddress",
-        type: "address",
-      },
-    ],
-    name: "AllowedTokenAdded",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "_tokenAddress",
-        type: "address",
-      },
-    ],
-    name: "AllowedTokenRemoved",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: false, internalType: "bool", name: "_enabled", type: "bool" },
-    ],
-    name: "AllowedTokenValidation",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "dailyLimit",
-        type: "uint256",
-      },
-    ],
-    name: "DailyLimitChanged",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "_maxTokens",
-        type: "uint256",
-      },
-    ],
-    name: "MaxTokensAllowedChanged",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "_minTokens",
-        type: "uint256",
-      },
-    ],
-    name: "MinTokensAllowedChanged",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "previousOwner",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "newOwner",
-        type: "address",
-      },
-    ],
-    name: "OwnershipTransferred",
-    type: "event",
-  },
-  {
-    constant: true,
-    inputs: [{ internalType: "address", name: "", type: "address" }],
-    name: "allowedTokens",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    payable: false,
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    constant: true,
-    inputs: [],
-    name: "dailyLimit",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-    payable: false,
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    constant: true,
-    inputs: [],
-    name: "isOwner",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    payable: false,
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    constant: true,
-    inputs: [],
-    name: "owner",
-    outputs: [{ internalType: "address", name: "", type: "address" }],
-    payable: false,
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    constant: false,
-    inputs: [],
-    name: "renounceOwnership",
-    outputs: [],
-    payable: false,
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    constant: false,
-    inputs: [{ internalType: "address", name: "newOwner", type: "address" }],
-    name: "transferOwnership",
-    outputs: [],
-    payable: false,
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    constant: true,
-    inputs: [],
-    name: "isValidatingAllowedTokens",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    payable: false,
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    constant: true,
-    inputs: [],
-    name: "getMaxTokensAllowed",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-    payable: false,
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    constant: true,
-    inputs: [],
-    name: "getMinTokensAllowed",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-    payable: false,
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    constant: true,
-    inputs: [{ internalType: "address", name: "token", type: "address" }],
-    name: "isTokenAllowed",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    payable: false,
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    constant: false,
-    inputs: [{ internalType: "address", name: "token", type: "address" }],
-    name: "addAllowedToken",
-    outputs: [],
-    payable: false,
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    constant: false,
-    inputs: [{ internalType: "address", name: "token", type: "address" }],
-    name: "removeAllowedToken",
-    outputs: [],
-    payable: false,
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    constant: false,
-    inputs: [],
-    name: "enableAllowedTokensValidation",
-    outputs: [],
-    payable: false,
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    constant: false,
-    inputs: [],
-    name: "disableAllowedTokensValidation",
-    outputs: [],
-    payable: false,
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    constant: false,
-    inputs: [{ internalType: "uint256", name: "maxTokens", type: "uint256" }],
-    name: "setMaxTokensAllowed",
-    outputs: [],
-    payable: false,
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    constant: false,
-    inputs: [{ internalType: "uint256", name: "minTokens", type: "uint256" }],
-    name: "setMinTokensAllowed",
-    outputs: [],
-    payable: false,
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    constant: false,
-    inputs: [{ internalType: "uint256", name: "_dailyLimit", type: "uint256" }],
-    name: "changeDailyLimit",
-    outputs: [],
-    payable: false,
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    constant: true,
-    inputs: [
-      { internalType: "address", name: "tokenToUse", type: "address" },
-      { internalType: "uint256", name: "amount", type: "uint256" },
-      { internalType: "uint256", name: "spentToday", type: "uint256" },
-      { internalType: "bool", name: "isSideToken", type: "bool" },
-    ],
-    name: "isValidTokenTransfer",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    payable: false,
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    constant: true,
-    inputs: [{ internalType: "uint256", name: "spentToday", type: "uint256" }],
-    name: "calcMaxWithdraw",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-    payable: false,
-    stateMutability: "view",
-    type: "function",
-  },
-];
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "_tokenAddress",
+          "type": "address"
+        }
+      ],
+      "name": "AllowedTokenRemoved",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "_smallAmountConfirmations",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "_mediumAmountConfirmations",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "_largeAmountConfirmations",
+          "type": "uint256"
+        }
+      ],
+      "name": "ConfirmationsChanged",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousOwner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnershipTransferred",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        }
+      ],
+      "name": "PrimaryTransferred",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "_tokenAddress",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "_typeId",
+          "type": "uint256"
+        }
+      ],
+      "name": "SetToken",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "_typeId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "_typeDescription",
+          "type": "string"
+        }
+      ],
+      "name": "TokenTypeAdded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "_typeId",
+          "type": "uint256"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "min",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "max",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "daily",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "mediumAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "largeAmount",
+              "type": "uint256"
+            }
+          ],
+          "indexed": false,
+          "internalType": "struct IAllowTokens.Limits",
+          "name": "limits",
+          "type": "tuple"
+        }
+      ],
+      "name": "TypeLimitsChanged",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "_tokenAddress",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "_lastDay",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "_spentToday",
+          "type": "uint256"
+        }
+      ],
+      "name": "UpdateTokensTransfered",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "MAX_TYPES",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        }
+      ],
+      "name": "__Secondary_init",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "description",
+          "type": "string"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "min",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "max",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "daily",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "mediumAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "largeAmount",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct IAllowTokens.Limits",
+          "name": "limits",
+          "type": "tuple"
+        }
+      ],
+      "name": "addTokenType",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "len",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "allowedTokens",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "allowed",
+          "type": "bool"
+        },
+        {
+          "internalType": "uint256",
+          "name": "typeId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "spentToday",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "lastDay",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        }
+      ],
+      "name": "calcMaxWithdraw",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "maxWithdraw",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getConfirmations",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "smallAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "mediumAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "largeAmount",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "tokenAddress",
+          "type": "address"
+        }
+      ],
+      "name": "getInfoAndLimits",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "bool",
+              "name": "allowed",
+              "type": "bool"
+            },
+            {
+              "internalType": "uint256",
+              "name": "typeId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "spentToday",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "lastDay",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct IAllowTokens.TokenInfo",
+          "name": "info",
+          "type": "tuple"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "min",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "max",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "daily",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "mediumAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "largeAmount",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct IAllowTokens.Limits",
+          "name": "limit",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getTypeDescriptions",
+      "outputs": [
+        {
+          "internalType": "string[]",
+          "name": "descriptions",
+          "type": "string[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getTypeDescriptionsLength",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getTypesLimits",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "min",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "max",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "daily",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "mediumAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "largeAmount",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct IAllowTokens.Limits[]",
+          "name": "limits",
+          "type": "tuple[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        }
+      ],
+      "name": "initialize",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_manager",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_primary",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_smallAmountConfirmations",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_mediumAmountConfirmations",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_largeAmountConfirmations",
+          "type": "uint256"
+        },
+        {
+          "components": [
+            {
+              "internalType": "string",
+              "name": "description",
+              "type": "string"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "min",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "max",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "daily",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "mediumAmount",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "largeAmount",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct IAllowTokens.Limits",
+              "name": "limits",
+              "type": "tuple"
+            }
+          ],
+          "internalType": "struct IAllowTokens.TypeInfo[]",
+          "name": "typesInfo",
+          "type": "tuple[]"
+        }
+      ],
+      "name": "initialize",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "isOwner",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        }
+      ],
+      "name": "isTokenAllowed",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "largeAmountConfirmations",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "mediumAmountConfirmations",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "primary",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        }
+      ],
+      "name": "removeAllowedToken",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "renounceOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_smallAmountConfirmations",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_mediumAmountConfirmations",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_largeAmountConfirmations",
+          "type": "uint256"
+        }
+      ],
+      "name": "setConfirmations",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "token",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "typeId",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct IAllowTokens.TokensAndType[]",
+          "name": "tokensAndTypes",
+          "type": "tuple[]"
+        }
+      ],
+      "name": "setMultipleTokens",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "typeId",
+          "type": "uint256"
+        }
+      ],
+      "name": "setToken",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "typeId",
+          "type": "uint256"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "min",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "max",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "daily",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "mediumAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "largeAmount",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct IAllowTokens.Limits",
+          "name": "limits",
+          "type": "tuple"
+        }
+      ],
+      "name": "setTypeLimits",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "smallAmountConfirmations",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "tokenAddress",
+          "type": "address"
+        }
+      ],
+      "name": "tokenInfo",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "bool",
+              "name": "allowed",
+              "type": "bool"
+            },
+            {
+              "internalType": "uint256",
+              "name": "typeId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "spentToday",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "lastDay",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct IAllowTokens.TokenInfo",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "transferOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        }
+      ],
+      "name": "transferPrimary",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "typeDescriptions",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "typeLimits",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "min",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "max",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "daily",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "mediumAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "largeAmount",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "updateTokenTransfer",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "version",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    }
+  ];
 
 const ERC20_ABI = [
   {
@@ -3408,7 +4080,7 @@ const FEDERATION_ABI = [
 const HATHOR_NATIVE_TOKEN = {
   token: "MTT",
   name: "Main Togger Token",
-  icon: "https://assets.coingecko.com/coins/images/1/standard/bitcoin.png?1696501400",
+  icon: "https://s2.coinmarketcap.com/static/img/coins/64x64/5552.png",
   11155111: {
     symbol: "eHTR",
     address: "0xf2FC56644abc39a9b540e763d0B558E6714e0a74",
