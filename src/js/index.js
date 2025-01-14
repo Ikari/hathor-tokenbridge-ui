@@ -1334,9 +1334,9 @@ async function getAccounts() {
 let SEPOLIA_CONFIG = {
   networkId: 11155111,
   name: "Sepolia",
-  bridge: "0x7c17af027693477fc219bd734ff81ad1f07057cf",
-  allowTokens: "0xed6dbc72b1b4ca20ff712624ebf12f45a1c6fa42",
-  federation: "0x02f16662013d32e81514a224bffe2fdfa50e05a6",
+  bridge: "0x2792efdb1c0dc6593054f0aa3997c09bf4fb4604",
+  allowTokens: "0x403cfe7a73e821894160b5dee1f9952c3e917a7d",
+  federation: "0x5b3ab7f427c9ea14e8eabd2975dfee2bb7603ccf",
   explorer: "https://sepolia.etherscan.io/",
   explorerTokenTab: "#tokentxns",
   confirmations: 10,
@@ -1346,9 +1346,9 @@ let SEPOLIA_CONFIG = {
 let HTR_TESTNET_CONFIG = {
   networkId: 31,
   name: "Golf",
-  bridge: "0x7c17af027693477fc219bd734ff81ad1f07057cf",
-  allowTokens: "0xed6dbc72b1b4ca20ff712624ebf12f45a1c6fa42",
-  federation: "0x02f16662013d32e81514a224bffe2fdfa50e05a6",
+  bridge: "0x2792efdb1c0dc6593054f0aa3997c09bf4fb4604",
+  allowTokens: "0x403cfe7a73e821894160b5dee1f9952c3e917a7d",
+  federation: "0x5b3ab7f427c9ea14e8eabd2975dfee2bb7603ccf",
   explorer: "https://explorer.testnet.hathor.network/",
   explorerTokenTab: "token_detail/",
   confirmations: 2,
@@ -3410,29 +3410,29 @@ const HATHOR_NATIVE_TOKEN = {
   name: "Main Togger Token",
   icon: "https://assets.coingecko.com/coins/images/1/standard/bitcoin.png?1696501400",
   11155111: {
-    symbol: "hMTT",
-    address: "0xd86426fa1cfecc6cd10d95e866d4f362838781ba",
+    symbol: "eHTR",
+    address: "0xf2FC56644abc39a9b540e763d0B558E6714e0a74",
     decimals: 18,
   },
   31: {
-    symbol: "MTT",
-    address: "0000100fa10a0557f1541ea0cb039d4ccc8f6a6ad995059fb3596bf30075f6e2",
+    symbol: "HTR",
+    address: "00",
     decimals: 18,
   },
 };
 
 const EVM_NATIVE_TOKEN = {
-  token: "SLT5",
-  name: "Hathor Origin Token",
+  token: "SLT6",
+  name: "Storm Labs Token 6",
   icon: "https://assets.coingecko.com/coins/images/279/standard/ethereum.png?1696501628",
   11155111: {
-    symbol: "eHOT",
-    address: "0xD358c04EEFa3DBE94Cb736F3060b6630C50EdfAd",
+    symbol: "SLT6",
+    address: "0x3Bd3b546F5FB3Ac5Fc50596646C5Efd27889f729",
     decimals: 18,
   },
   31: {
-    symbol: "HOT",
-    address: "0x9Ff7A00f1e9Ca1D3135Cf53eF9E9856A64619b04",
+    symbol: "hSLT6",
+    address: "0x3Bd3b546F5FB3Ac5Fc50596646C5Efd27889f729",
     decimals: 18,
   },
 };
