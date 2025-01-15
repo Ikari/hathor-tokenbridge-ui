@@ -35,11 +35,15 @@ $(document).ready(function () {
   isTestnet = window.location.href.includes("testnet");
   if (isTestnet) {
     $("#title").text("Hathor Golf Testnet bridge with Sepolia");
-    let navlink = $("#network-navlink");
-    navlink.prop("href", "http://hathorbridge.xyz");
-    navlink.text("Use Mainnet");
+    // let navlink = $("#network-navlink");
+    // navlink.prop("href", "http://localhost:9000");
+    // navlink.text("Use Mainnet");
+    // navlink.on("click", function (event) {
+    //   event.preventDefault();
+    //   window.location.replace("http://localhost:9000");
+    //   location.reload();
+    // });
   }
-
   if (
     !/chrom(e|ium)/.test(navigator.userAgent.toLowerCase()) &&
     navigator.userAgent.indexOf("Firefox") == -1
