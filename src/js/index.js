@@ -4080,8 +4080,8 @@ const FEDERATION_ABI = [
 
 // --------- TOKENS --------------
 const HATHOR_NATIVE_TOKEN = {
-  token: "MTT",
-  name: "Main Togger Token",
+  token: "eHTR",
+  name: "Hathor Token",
   icon: "https://s2.coinmarketcap.com/static/img/coins/64x64/5552.png",
   11155111: {
     symbol: "eHTR",
@@ -4090,7 +4090,7 @@ const HATHOR_NATIVE_TOKEN = {
   },
   31: {
     symbol: "HTR",
-    address: "00",
+    address: "0xE3f0Ae350EE09657933CD8202A4dd563c5af941F",
     decimals: 18,
   },
 };
