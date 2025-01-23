@@ -304,6 +304,17 @@ input::placeholder {
   transition: all 0.5s ease;
 }
 
+.powered {
+  display: inline;
+}
+
+.hathor-logo {
+  width: 26px;
+  height: auto;
+  transition: all 0.5s ease;
+  display: inline;
+}
+
 .navbar {
   margin-top: 15px;
 }
