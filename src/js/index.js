@@ -190,7 +190,7 @@ async function fillClaims() {
     } = claim;
 
     const tk = TOKENS.find(
-      (token) => token[31].address === _originalTokenAddress
+      (token) => token[31].address === _originalTokenAddress || token[11155111].address === _originalTokenAddress
     );
 
     html += `
@@ -350,6 +350,7 @@ async function handleAcceptedCrossTransferEvent(event) {
             Processing transaction: ${_transactionHash} \n 
             from: ${_from}\n
             to: ${_to} \n
+            token: ${_originalTokenAddress} \n
             amount: ${_amount}
         `
   );
@@ -1329,9 +1330,9 @@ async function getAccounts() {
 let SEPOLIA_CONFIG = {
   networkId: 11155111,
   name: "Sepolia",
-  bridge: "0x2792efdb1c0dc6593054f0aa3997c09bf4fb4604",
-  allowTokens: "0x403cfe7a73e821894160b5dee1f9952c3e917a7d",
-  federation: "0x5b3ab7f427c9ea14e8eabd2975dfee2bb7603ccf",
+  bridge: "0x7e11388186127b720513864bb445882ae611e1f6",
+  allowTokens: "0x278f39c10128e0e23bb1b65f0b4187200a9b061b",
+  federation: "0x7a48b9cd441f2457c5131fe1cb6301110fe3e6cd",
   explorer: "https://sepolia.etherscan.io/",
   explorerTokenTab: "#tokentxns",
   confirmations: 10,
@@ -1341,9 +1342,9 @@ let SEPOLIA_CONFIG = {
 let HTR_TESTNET_CONFIG = {
   networkId: 31,
   name: "Golf",
-  bridge: "0x2792efdb1c0dc6593054f0aa3997c09bf4fb4604",
-  allowTokens: "0x403cfe7a73e821894160b5dee1f9952c3e917a7d",
-  federation: "0x5b3ab7f427c9ea14e8eabd2975dfee2bb7603ccf",
+  bridge: "0x7e11388186127b720513864bb445882ae611e1f6",
+  allowTokens: "0x278f39c10128e0e23bb1b65f0b4187200a9b061b",
+  federation: "0x7a48b9cd441f2457c5131fe1cb6301110fe3e6cd",
   explorer: "https://explorer.testnet.hathor.network/",
   explorerTokenTab: "token_detail/",
   confirmations: 2,
@@ -4077,7 +4078,7 @@ const HATHOR_NATIVE_TOKEN = {
   icon: "https://s2.coinmarketcap.com/static/img/coins/64x64/5552.png",
   11155111: {
     symbol: "eHTR",
-    address: "0xf2FC56644abc39a9b540e763d0B558E6714e0a74",
+    address: "0xBd8A2Feba2724f0463F7C803D80340F6B2596a1A",
     decimals: 18,
   },
   31: {
@@ -4088,17 +4089,17 @@ const HATHOR_NATIVE_TOKEN = {
 };
 
 const EVM_NATIVE_TOKEN = {
-  token: "SLT6",
-  name: "Storm Labs Token 6",
+  token: "SLT7",
+  name: "Storm Labs Token 7",
   icon: "https://assets.coingecko.com/coins/images/279/standard/ethereum.png?1696501628",
   11155111: {
-    symbol: "SLT6",
-    address: "0x3Bd3b546F5FB3Ac5Fc50596646C5Efd27889f729",
+    symbol: "SLT7",
+    address: "0x97118caaE1F773a84462490Dd01FE7a3e7C4cdCd",
     decimals: 18,
   },
   31: {
-    symbol: "hSLT6",
-    address: "0x3Bd3b546F5FB3Ac5Fc50596646C5Efd27889f729",
+    symbol: "hSLT7",
+    address: "0xAF8aD2C33c2c9a48CD906A4c5952A835FeB25696",
     decimals: 18,
   },
 };
