@@ -1,22 +1,24 @@
 //User
 let address = "";
-let activeAddressEth2RskTxns = [];
-let eth2RskTablePage = 1;
-let eth2RskPaginationObj = {};
-let activeAddressRsk2EthTxns = [];
-let rsk2EthTablePage = 1;
-let rsk2EthPaginationObj = {};
+let activeAddresseth2HtrTxns = [];
+let eth2HtrTablePage = 1;
+let eth2HtrPaginationObj = {};
+let activeAddresshtr2EthTxns = [];
+let htr2EthTablePage = 1;
+let htr2EthPaginationObj = {};
+let poolingIntervalId = null;
 //Network configuration
 let config = null;
 let isTestnet = true;
 let allowTokensContract = null;
 let bridgeContract = null;
+let hathorFederationContract = null;
 let federationContract = null;
 let minTokensAllowed = 1;
 let maxTokensAllowed = 100_000;
 let maxDailyLimit = 1_000_000;
 let currentBlockNumber = null;
-// Selected Token To Cross
+// Selected Token To Cross  
 let tokenContract = null;
 let isSideToken = false;
 let sideTokenAddress = null;
@@ -80,12 +82,7 @@ $(document).ready(function () {
   $("#claimTab").hide();
 
   $("#claimTokens").click(function () {
-    changeToClaim();
-  });
-
-  $("#claim").on("click", function (e) {
-    e.preventDefault();
-    claimToken();
+    showEvmTxsnTabe();
   });
 
   $("#tokenAddress").change(function (event) {
@@ -139,7 +136,6 @@ $(document).ready(function () {
     e.preventDefault();
     crossToken();
   });
-
   $("#approve").on("click", function (e) {
     e.preventDefault();
     approveSpend();
@@ -151,92 +147,247 @@ $(document).ready(function () {
       "This operation is unavailable until Celo Donut Fork."
     );
   });
-  $("#refresh-claim").on("click", function () {
-    fillClaims();
-  });
   updateTokenListTab();
-  // isInstalled(); - uncomment to show popup on page load
+  isInstalled();
 });
 
-async function changeToClaim() {
-  $("#claimTokens span").toggle();
-  $(".subtitle").toggle();
-  $("#transferTab").toggle();
-  $("#claimTab").toggle();
+// CLAIMS
 
-  fillClaims();
-}
+async function fillHathorToEvmTxs() {  
+  const walletAddress = $("#address").text();
 
-async function fillClaims() {
-  $("#claims-tbody").html("");
-  $("#wait_claim_nomessage").show();
-  let html = "";
+  if (!walletAddress || walletAddress === "0x123456789") {
+    return;
+  }
 
   const claims = await getPendingClaims();
+  const transactions = await getPendingHathorTxs(claims);
 
-  if (!claims.length) {
-    html += '<tr><td colspan="3">No claims found</td></tr>';
-  }
+  transactions.forEach(prpsl => 
+    {
+      const tk = TOKENS.find((token) => 
+        token[config.crossToNetwork.networkId].hathorAddr === prpsl.originalTokenAddress || 
+        token[config.networkId].address === prpsl.originalTokenAddress ||
+        token[config.crossToNetwork.networkId].address === prpsl.originalTokenAddress
+      );
 
-  for (const claim of claims) {
-    const {
-      _originalTokenAddress,
-      _to,
-      _amount,
-      _blockHash,
-      _logIndex,
-      _originChainId,
-      isClaimed,
-    } = claim;
-
-    const tk = TOKENS.find(
-      (token) => token[31].address === _originalTokenAddress || token[11155111].address === _originalTokenAddress
-    );
-
-    html += `
-            <tr>
-                <td>${tk.name}</td>
-                <td>${web3.utils.fromWei(_amount, "ether")}</td>
-                <td>
-                    <!-- Claim button -->
-                    ${
-                      isClaimed
-                        ? '<button class="btn btn-primary claim-button" disabled>Claimed</button>'
-                        : `<button 
-                            class="btn btn-primary claim-button" 
-                            data-to="${_to}" 
-                            data-amount="${_amount}" 
-                            data-blockhash="${_blockHash}" 
-                            data-logindex="${_logIndex}" 
-                            data-originchainid="${_originChainId}">
-                            Claim
-                        </button>`
-                    }
-                </td>
-            </tr>
-        `;
-  }
-
-  $("#claims-tbody").html(html);
-
-  // Add an event listener after rendering the buttons
-  document
-    .querySelectorAll(".claim-button:not([disabled])")
-    .forEach((button) => {
-      button.addEventListener("click", (event) => {
-        event.preventDefault();
-
-        const to = button.getAttribute("data-to");
-        const amount = button.getAttribute("data-amount");
-        const blockHash = button.getAttribute("data-blockhash");
-        const logIndex = button.getAttribute("data-logindex");
-        const originChainId = button.getAttribute("data-originchainid");
-
-        claimToken(to, amount, blockHash, logIndex, originChainId);
+      TXN_Storage.addHathorTxn(address, config.crossToNetwork.name, {
+        transactionHash: prpsl.transactionHash,
+        token: tk[config.networkId].symbol,
+        amount: prpsl.value ? prpsl.value / 100 : prpsl.amount / Math.pow(10, tk[config.networkId].decimals),
+        sender: prpsl.sender,
+        status: prpsl.status,
+        action: setStatusAction(prpsl.status, prpsl),
       });
-    });
+    }
+  );
 
-  $("#wait_claim_nomessage").hide();
+  updateActiveAddressTXNs(walletAddress);
+  showActiveAddressTXNs();
+}
+
+async function getPendingHathorTxs(claims) {
+if (!hathorFederationContract) {
+    const prvdr = new Web3(new Web3.providers.HttpProvider('https://arb-sepolia.g.alchemy.com/v2/uZC_k6qzUFbIP5MigPnBCvry-n9M-gOV'));
+    hathorFederationContract = new prvdr.eth.Contract(HATHOR_FEDERATION_ABI, config.crossToNetwork.federation);
+  } 
+  
+  const events = await hathorFederationContract.getPastEvents("AllEvents", {
+    fromBlock: "earliest",
+  });
+
+  const walletAddress = $("#address").text();
+
+  const transactionTypes = [ "0", "2" ];
+
+  const approvedTransactionEvents = events.filter(
+    (evt) =>
+      evt.event === "ProposalSent" &&
+      evt.returnValues.receiver === walletAddress &&
+      transactionTypes.includes(evt.returnValues.transactionType)
+  );
+  
+  const proposedTransactionsEvents = events.filter(
+    (evt) =>
+      evt.event === "TransactionProposed" &&
+      evt.returnValues.receiver === walletAddress &&
+      transactionTypes.includes(evt.returnValues.transactionType)
+  );
+
+  const approvedTransactionIds = approvedTransactionEvents.map((evt) => evt.returnValues.transactionId);
+  
+  const proposedTransactions = proposedTransactionsEvents
+    .filter(evt => 
+      !approvedTransactionIds.includes(evt.returnValues.transactionId))
+    .map(handleProposalEvents);
+
+  const claimedTxHashes = claims.map(claim => claim.transactionHash);
+
+  const approvedTransactions = approvedTransactionEvents
+      .filter(evt => 
+        evt.returnValues.processed && 
+        !claimedTxHashes.includes(Web3.utils.keccak256(evt.returnValues.transactionHash))
+      )
+      .map(handleProposalEvents);
+
+  const acceptedTransactions = approvedTransactionEvents
+      .filter(evt => 
+        evt.returnValues.processed && 
+        claimedTxHashes.includes(Web3.utils.keccak256(evt.returnValues.transactionHash))
+      )
+      .map(handleProposalEvents)
+      .map(tx => mergeClaimAndProposal(claims.find(claim => claim.transactionHash === tx.transactionHash), tx))
+      ;
+
+  const evmOriginTokenTxs = [...proposedTransactions, ...approvedTransactions, ...acceptedTransactions];
+
+  const evmOriginTokenTxsIds = evmOriginTokenTxs.map(tx => tx.transactionHash);
+
+  const htrOriginTokenTxs = claims.filter(claim => !evmOriginTokenTxsIds.includes(claim.transactionHash))
+
+  return [...evmOriginTokenTxs, ...htrOriginTokenTxs];
+}
+
+async function getPendingClaims() {    
+  const events = await federationContract.getPastEvents("AllEvents", {
+    fromBlock: "7375385",
+  });
+  const walletAddress = $("#address").text();
+  const crossTransferEvents = events.filter(
+    (evt) =>
+      (evt.event === "Voted" || evt.event === "Executed") &&
+      evt.returnValues.receiver === walletAddress
+  );
+
+  console.log(`Total voted events: ${crossTransferEvents.length}`);
+
+  const executedTransfers = crossTransferEvents.filter(evt => evt.event === "Executed");
+  console.log(`Total evecuted events: ${executedTransfers.length}`);
+  const executedTransferIds = executedTransfers.map(et => et.returnValues.transactionId);
+  const votedTransfers = crossTransferEvents.filter(evt => evt.event === "Voted" && !executedTransferIds.includes(evt.returnValues.transactionId));
+  const uniqueVotedTransfers = [...new Map(votedTransfers.map(evt => [evt.returnValues.transactionId, {...evt, status: "processing_transfer"}])).values()];
+  console.log(`Total unique voted events: ${uniqueVotedTransfers.length}`);
+  const uniqueTransferEvents = [...executedTransfers, ...uniqueVotedTransfers];
+
+  console.log(`Total unique events: ${uniqueTransferEvents.length}`);
+
+  return await Promise.all(uniqueTransferEvents.map(handleTransferEvents));
+}
+
+function setStatusAction(status, tx) {
+  let action = "";
+
+  switch (status) {
+    case "processing_transfer":
+        action = "<p>Pending</p>"
+      break;
+    case "awaiting_claim":
+        action = `<button 
+                      class="btn btn-primary claim-button" 
+                      data-token="${tx.originalTokenAddress}"
+                      data-to="${tx.receiver}" 
+                      data-amount="${tx.amount}" 
+                      data-blockhash="${tx.transactionHash}" 
+                      data-logindex="${tx.logIndex}" 
+                      data-originchainid="${tx.originChainId}">
+                      Claim
+                  </button>`
+      break;
+    case "claimed":
+        action = "<p>Claimed</p>"
+      break;
+  }
+
+  return action;
+}
+
+function mergeClaimAndProposal(claim, proposal) {
+  return {
+    originalTokenAddress: proposal.originalTokenAddress,    
+    transactionHash: proposal.transactionHash,
+    amount: claim.amount,
+    value: proposal.value,    
+    sender: proposal.sender,
+    receiver: proposal.receiver,    
+    transactionType: proposal.transactionType,
+    transactionId: proposal.transactionId,    
+    logIndex: claim.logIndex,
+    originChainId: claim.originChainId,
+    status: claim.status
+  }
+}
+
+function handleProposalEvents(event) {  
+  const {
+    originalTokenAddress,    
+    transactionHash,
+    value,    
+    sender,
+    receiver,    
+    transactionType,
+    transactionId
+  } = event.returnValues;
+
+  const hashedTx = Web3.utils.keccak256(transactionHash);
+
+  return {
+    sender,
+    originalTokenAddress,
+    receiver,    
+    transactionHash: hashedTx,
+    value,    
+    transactionType,
+    transactionId, 
+    status: "processing_transfer"
+  };
+}
+
+async function handleTransferEvents(event) {
+  let {
+    transactionHash,
+    originalTokenAddress,
+    receiver,
+    amount,
+    blockHash,
+    logIndex,
+		originChainId,
+		destinationChainId
+  } = event.returnValues;
+
+  let transaction = {
+      sender : "",
+      originalTokenAddress,
+      receiver,
+      amount,
+      transactionHash: blockHash,
+      logIndex,
+      originChainId,
+    };
+
+  if (event.status === "processing_transfer") {
+    transaction.status = "processing_transfer";
+    return transaction;
+  }
+
+  const txDataHash = await bridgeContract.methods
+    .getTransactionDataHash(
+      receiver,
+      amount,
+      blockHash,
+      transactionHash,
+      logIndex,
+      originChainId,
+      destinationChainId
+    )
+    .call();
+
+  const isClaimed = await bridgeContract.methods
+    .isClaimed(txDataHash, txDataHash)
+    .call();
+
+  transaction.status = isClaimed ? "claimed" : "awaiting_claim";
+
+  return transaction;
 }
 
 async function waitForReceipt(txHash) {
@@ -274,120 +425,41 @@ function onLogInClick() {
 }
 
 function onPreviousTxnClick() {
-  if ($("#nav-eth-rsk-tab").attr("class").includes("active")) {
-    if (eth2RskPaginationObj != {} && eth2RskPaginationObj.pre_page == null) {
+  if ($("#nav-eth-htr-tab").attr("class").includes("active")) {
+    if (eth2HtrPaginationObj != {} && eth2HtrPaginationObj.pre_page == null) {
       // no decrement applied
     } else {
-      eth2RskTablePage -= 1;
+      eth2HtrTablePage -= 1;
     }
   } else {
-    if (rsk2EthPaginationObj != {} && rsk2EthPaginationObj.pre_page == null) {
+    if (htr2EthPaginationObj != {} && htr2EthPaginationObj.pre_page == null) {
       // no decrement applied
     } else {
-      rsk2EthTablePage -= 1;
+      htr2EthTablePage -= 1;
     }
   }
   showActiveAddressTXNs();
 }
 
 function onNextTxnClick() {
-  if ($("#nav-eth-rsk-tab").attr("class").includes("active")) {
-    if (eth2RskPaginationObj != {} && eth2RskPaginationObj.next_page == null) {
+  if ($("#nav-eth-htr-tab").attr("class").includes("active")) {
+    if (eth2HtrPaginationObj != {} && eth2HtrPaginationObj.next_page == null) {
       // no increment applied
     } else {
-      eth2RskTablePage += 1;
+      eth2HtrTablePage += 1;
     }
   } else {
-    if (rsk2EthPaginationObj != {} && rsk2EthPaginationObj.next_page == null) {
+    if (htr2EthPaginationObj != {} && htr2EthPaginationObj.next_page == null) {
       // no increment applied
     } else {
-      rsk2EthTablePage += 1;
+      htr2EthTablePage += 1;
     }
   }
 
   showActiveAddressTXNs();
 }
 
-async function getPendingClaims() {
-  console.log("evaluating past claims...");
-  const events = await bridgeContract.getPastEvents("AllEvents", {
-    fromBlock: "7375385",
-  });
-  const walletAddress = $("#address").text();
-  const crossTransferEvents = events.filter(
-    (evt) =>
-      evt.event === "AcceptedCrossTransfer" &&
-      evt.returnValues._to === walletAddress
-  );
-  console.log(`${crossTransferEvents.length} events found...`);
-  const claims = [];
-  for (const event of crossTransferEvents) {
-    const claim = await handleAcceptedCrossTransferEvent(event);
-
-    if (claim) {
-      claims.push(claim);
-    }
-  }
-
-  return claims;
-}
-
-async function handleAcceptedCrossTransferEvent(event) {
-  let {
-    _transactionHash,
-    _originalTokenAddress,
-    _to,
-    _from,
-    _amount,
-    _blockHash,
-    _logIndex,
-    _originChainId,
-    _destinationChainId,
-  } = event.returnValues;
-
-  console.log(
-    `
-            Processing transaction: ${_transactionHash} \n 
-            from: ${_from}\n
-            to: ${_to} \n
-            token: ${_originalTokenAddress} \n
-            amount: ${_amount}
-        `
-  );
-
-  const txDataHash = await bridgeContract.methods
-    .getTransactionDataHash(
-      _to,
-      _amount,
-      _blockHash,
-      _transactionHash,
-      _logIndex,
-      _originChainId,
-      _destinationChainId
-    )
-    .call();
-
-  const isClaimed = await bridgeContract.methods
-    .isClaimed(txDataHash, txDataHash)
-    .call();
-
-  if (isClaimed) {
-    return null;
-  }
-
-  const transaction = {
-    _from,
-    _originalTokenAddress,
-    _to,
-    _amount,
-    _blockHash,
-    _logIndex,
-    _originChainId,
-    isClaimed,
-  };
-
-  return transaction;
-}
+// END CLAIMS
 
 async function setInfoTab(tokenAddress) {
   try {
@@ -414,7 +486,7 @@ async function setInfoTab(tokenAddress) {
     $("#config-max").text(maxTokensAllowed.toLocaleString());
     $("#config-to-spend").text(maxDailyLimit.toLocaleString());
     $("#config-federators-count").text(`${federators.length}`);
-    //$('#config-federators-required').text(`${Math.floor((federators.length / 2) + 1)}`);
+    $('#config-federators-required').text(`${Math.floor((federators.length / 2) + 1)}`);
     $("#config-whitelisted-enabled").html(
       `${config.crossToNetwork.confirmationTime}`
     );
@@ -607,6 +679,8 @@ async function crossToken() {
   $("#wait").show();
   let gasPrice = "";
 
+  console.log(`Amount sending: ${amountBN}`);
+
   return retry3Times(tokenContract.methods.balanceOf(address).call)
     .then(async (balance) => {
       const balanceBN = new BN(balance);
@@ -711,6 +785,7 @@ function errorClaim(error) {
 }
 
 async function claimToken(to, amount, blockHash, logIndex, originChainId) {
+  clearInterval(poolingIntervalId);
   cleanAlertErrorClaim();
   cleanAlertSuccessClaim();
 
@@ -718,12 +793,6 @@ async function claimToken(to, amount, blockHash, logIndex, originChainId) {
     errorClaim("Connect your wallet!");
     return;
   }
-
-  console.log(to);
-  console.log(amount);
-  console.log(blockHash);
-  console.log(logIndex);
-  console.log(originChainId);
 
   var gasPriceParsed = 0;
   if (config.networkId >= 30 && config.networkId <= 33) {
@@ -737,7 +806,7 @@ async function claimToken(to, amount, blockHash, logIndex, originChainId) {
   }
   const gasPrice = `0x${Math.ceil(gasPriceParsed).toString(16)}`;
 
-  const txHash = await bridgeContract.methods
+  await bridgeContract.methods
     .claim({
       to: to,
       amount: amount,
@@ -747,17 +816,18 @@ async function claimToken(to, amount, blockHash, logIndex, originChainId) {
       originChainId: originChainId,
     })
     .send({ from: address, gasPrice: gasPrice, gas: 200_000 })
-    .catch((err) => {
-      console.log(err);
+    .on('transactionHash', (hash) => {
+      console.log(`txHash: ${hash}`);
+    })
+    .on('receipt', (receipt) => {
+      console.log(receipt);
+      startPoolingTxs();
+    })
+    .on('error', (error, receipt) => {
+      console.log(error);
+      console.log(receipt);
+      startPoolingTxs();
     });
-
-  console.log(`txHash: ${txHash}`);
-
-  let receipt = await waitForReceipt(txHash);
-  console.log(receipt);
-  if (receipt.status) {
-    $("#success").show();
-  }
 }
 
 function cleanAlertSuccess() {
@@ -1006,52 +1076,44 @@ function updateAddress(newAddresses) {
   return Promise.resolve(address);
 }
 
-function updateActiveAddressTXNs(addr) {
-  if (config.name.toLowerCase().includes("eth")) {
-    activeAddressEth2RskTxns = TXN_Storage.getAllTxns4Address(
-      address,
-      config.name
-    );
-    activeAddressRsk2EthTxns = TXN_Storage.getAllTxns4Address(
-      address,
-      config.crossToNetwork.name
-    );
-  } else {
-    activeAddressRsk2EthTxns = TXN_Storage.getAllTxns4Address(
-      address,
-      config.name
-    );
-    activeAddressEth2RskTxns = TXN_Storage.getAllTxns4Address(
-      address,
-      config.crossToNetwork.name
-    );
-  }
+function updateActiveAddressTXNs() {
+  activeAddresseth2HtrTxns = TXN_Storage.getAllTxns4Address(
+    address,
+    config.crossToNetwork.name
+  );
+  activeAddresshtr2EthTxns = TXN_Storage.getAllTxns4Address(
+    address,
+    config.name
+  );
 }
 
 function showActiveTxnsTab() {
   if (config.name.toLowerCase().includes("eth")) {
-    $("#nav-eth-rsk-tab").addClass("active").attr("aria-selected", true);
-
-    $("#nav-eth-rsk").addClass("active show");
-
-    $("#nav-rsk-eth-tab").removeClass("active").attr("aria-selected", false);
-
-    $("#nav-rsk-eth").removeClass("active show");
+    showEvmTxsnTabe();
   } else {
-    $("#nav-rsk-eth-tab").addClass("active").attr("aria-selected", true);
-
-    $("#nav-rsk-eth").addClass("active show");
-
-    $("#nav-eth-rsk-tab").attr("aria-selected", false).removeClass("active");
-
-    $("#nav-eth-rsk").removeClass("active show");
+    showHtrTxsnTabe();
   }
+}
+
+function showEvmTxsnTabe() {
+  $("#nav-eth-htr-tab").addClass("active").attr("aria-selected", true);
+  $("#nav-eth-htr").addClass("active show");
+  $("#nav-htr-eth-tab").removeClass("active").attr("aria-selected", false);
+  $("#nav-htr-eth").removeClass("active show");
+}
+
+
+function showHtrTxsnTabe() {
+  $("#nav-htr-eth-tab").addClass("active").attr("aria-selected", true);
+  $("#nav-htr-eth").addClass("active show");
+  $("#nav-eth-htr-tab").attr("aria-selected", false).removeClass("active");
+  $("#nav-eth-htr").removeClass("active show");
 }
 
 function showActiveAddressTXNs() {
   if (
     !address ||
-    (!activeAddressEth2RskTxns.length && !activeAddressRsk2EthTxns.length)
+    (!activeAddresseth2HtrTxns.length && !activeAddresshtr2EthTxns.length)
   ) {
     $("#previousTxnsEmptyTab").css("margin-bottom", "6em").show();
     $("#previousTxnsTab").hide();
@@ -1063,24 +1125,34 @@ function showActiveAddressTXNs() {
   $("#txn-previous").off().on("click", onPreviousTxnClick);
   $("#txn-next").off().on("click", onNextTxnClick);
 
-  let eth2RskTable = $("#eth-rsk-tbody");
-  let rsk2EthTable = $("#rsk-eth-tbody");
+  let eth2HtrTable = $("#eth-htr-tbody");
+  let htr2EthTable = $("#htr-eth-tbody");
 
-  eth2RskPaginationObj = Paginator(
-    activeAddressEth2RskTxns,
-    eth2RskTablePage,
+  eth2HtrPaginationObj = Paginator(
+    activeAddresseth2HtrTxns,
+    eth2HtrTablePage,
     3
   );
-  let { data: eth2RskTxns } = eth2RskPaginationObj;
+  let { data: eth2HtrTxns } = eth2HtrPaginationObj;
 
-  rsk2EthPaginationObj = Paginator(
-    activeAddressRsk2EthTxns,
-    rsk2EthTablePage,
+  htr2EthPaginationObj = Paginator(
+    activeAddresshtr2EthTxns,
+    htr2EthTablePage,
     3
   );
-  let { data: rsk2EthTxns } = rsk2EthPaginationObj;
+  let { data: htr2EthTxns } = htr2EthPaginationObj;
 
   let currentNetwork = $(".indicator span").text();
+
+  const processHtrTxn = (txn, config = {}) => {
+    let htmlRow = `<tr class="black">
+        <td>${txn.sender}</td>
+        <td>${txn.amount} ${txn.token}</td>
+        <td>${txn.action}</td>
+    </tr>`;
+
+    return htmlRow;
+  };
 
   const processTxn = (txn, config = {}) => {
     const { confirmations, secondsPerBlock, explorer } = config;
@@ -1128,34 +1200,46 @@ function showActiveAddressTXNs() {
     return htmlRow;
   };
 
-  let activeAddressTXNsEth2RskRows;
-  let activeAddressTXNsRsk2EthRows;
+  const activeAddressTXNseth2HtrRows = eth2HtrTxns.map((txn) => {
+    return processHtrTxn(txn, config);
+  });
+  const activeAddressTXNshtr2EthRows = htr2EthTxns.map((txn) => {
+    return processTxn(txn, config.crossToNetwork);
+  });
 
-  if (config.name.toLowerCase().includes("eth")) {
-    activeAddressTXNsEth2RskRows = eth2RskTxns.map((txn) => {
-      return processTxn(txn, config);
-    });
-    activeAddressTXNsRsk2EthRows = rsk2EthTxns.map((txn) => {
-      return processTxn(txn, config.crossToNetwork);
-    });
-  } else {
-    activeAddressTXNsEth2RskRows = eth2RskTxns.map((txn) => {
-      return processTxn(txn, config.crossToNetwork);
-    });
-    activeAddressTXNsRsk2EthRows = rsk2EthTxns.map((txn) => {
-      return processTxn(txn, config);
-    });
-  }
+  eth2HtrTable.html(activeAddressTXNseth2HtrRows.join());
+  htr2EthTable.html(activeAddressTXNshtr2EthRows.join());
+  setClaimButtons();
+}
 
-  eth2RskTable.html(activeAddressTXNsEth2RskRows.join());
-  rsk2EthTable.html(activeAddressTXNsRsk2EthRows.join());
+function setClaimButtons() {
+  document
+    .querySelectorAll(".claim-button:not([disabled])")
+    .forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        button.setAttribute('disabled', 'true');
+
+        const to = button.getAttribute("data-to");
+        const amount = button.getAttribute("data-amount");
+        const blockHash = button.getAttribute("data-blockhash");
+        const logIndex = button.getAttribute("data-logindex");
+        const originChainId = button.getAttribute("data-originchainid");
+
+        claimToken(to, amount, blockHash, logIndex, originChainId);
+      });
+    });
+
+  $("#wait_claim_nomessage").hide();
 }
 
 async function updateCallback(chainId, accounts) {
   return updateNetwork(chainId)
     .then(() => updateAddress(accounts))
     .then((addr) => updateActiveAddressTXNs(addr))
-    .then(() => showActiveAddressTXNs());
+    .then(fillHathorToEvmTxs)
+    .then(showActiveAddressTXNs)    
+    ;
 }
 
 function updateNetworkConfig(config) {
@@ -1219,22 +1303,28 @@ async function updateNetwork(newNetwork) {
     // setInfoTab();
     onMetaMaskConnectionSuccess();
 
-    let pollingLastBlockIntervalId = await poll4LastBlockNumber(function (
-      blockNumber
-    ) {
-      currentBlockNumber = blockNumber;
-      showActiveAddressTXNs();
-    });
+    await startPoolingTxs();
 
     if (TXN_Storage.isStorageAvailable("localStorage")) {
       console.log(`Local Storage Available!`);
     } else {
       console.log(`Local Storage Unavailable!`);
     }
+
   } catch (err) {
     onMetaMaskConnectionError(err);
     throw err;
   }
+}
+
+async function startPoolingTxs() {
+  poolingIntervalId = await poll4LastBlockNumber(async function (
+      blockNumber
+    ) {
+      currentBlockNumber = blockNumber;
+      await fillHathorToEvmTxs();
+      showActiveAddressTXNs();
+    });
 }
 
 function updateTokenAddressDropdown(networkId) {
@@ -1342,9 +1432,7 @@ let SEPOLIA_CONFIG = {
 let HTR_TESTNET_CONFIG = {
   networkId: 31,
   name: "Golf",
-  bridge: "0x7e11388186127b720513864bb445882ae611e1f6",
-  allowTokens: "0x278f39c10128e0e23bb1b65f0b4187200a9b061b",
-  federation: "0x7a48b9cd441f2457c5131fe1cb6301110fe3e6cd",
+  federation: "0xeB8457a67e5575FbE350b9A7084D1eEa7B5415F7",
   explorer: "https://explorer.testnet.hathor.network/",
   explorerTokenTab: "token_detail/",
   confirmations: 2,
@@ -1384,2691 +1472,22 @@ ETH_CONFIG.crossToNetwork = HTR_MAINNET_CONFIG;
 // --------- CONFIGS  END --------------
 
 // --------- ABI --------------
-const BRIDGE_ABI = [
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "bytes32",
-        name: "_transactionHash",
-        type: "bytes32",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "_originalTokenAddress",
-        type: "address",
-      },
-      { indexed: true, internalType: "address", name: "_to", type: "address" },
-      {
-        indexed: false,
-        internalType: "address",
-        name: "_from",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "_amount",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "bytes32",
-        name: "_blockHash",
-        type: "bytes32",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "_logIndex",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "_originChainId",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "_destinationChainId",
-        type: "uint256",
-      },
-    ],
-    name: "AcceptedCrossTransfer",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: false,
-        internalType: "address",
-        name: "_newAllowTokens",
-        type: "address",
-      },
-    ],
-    name: "AllowTokensChanged",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "bytes32",
-        name: "_transactionHash",
-        type: "bytes32",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "_originalTokenAddress",
-        type: "address",
-      },
-      { indexed: true, internalType: "address", name: "_to", type: "address" },
-      {
-        indexed: false,
-        internalType: "address",
-        name: "_sender",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "_amount",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "bytes32",
-        name: "_blockHash",
-        type: "bytes32",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "_logIndex",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "address",
-        name: "_reciever",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "address",
-        name: "_relayer",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "_fee",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "_destinationChainId",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "_originChainId",
-        type: "uint256",
-      },
-    ],
-    name: "Claimed",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "_tokenAddress",
-        type: "address",
-      },
-      { indexed: false, internalType: "string", name: "_to", type: "string" },
-      {
-        indexed: true,
-        internalType: "uint256",
-        name: "_destinationChainId",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "address",
-        name: "_from",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "_originChainId",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "_amount",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "bytes",
-        name: "_userData",
-        type: "bytes",
-      },
-    ],
-    name: "Cross",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: false,
-        internalType: "address",
-        name: "_newFederation",
-        type: "address",
-      },
-    ],
-    name: "FederationChanged",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "_amount",
-        type: "uint256",
-      },
-    ],
-    name: "FeePercentageChanged",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: false,
-        internalType: "address",
-        name: "token",
-        type: "address",
-      },
-      { indexed: false, internalType: "string", name: "uid", type: "string" },
-    ],
-    name: "HathorTokenMapped",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "_newSideTokenAddress",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "_originalTokenAddress",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "string",
-        name: "_newSymbol",
-        type: "string",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "_granularity",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "_chainId",
-        type: "uint256",
-      },
-    ],
-    name: "NewSideToken",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "previousOwner",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "newOwner",
-        type: "address",
-      },
-    ],
-    name: "OwnershipTransferred",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: false,
-        internalType: "address",
-        name: "account",
-        type: "address",
-      },
-    ],
-    name: "Paused",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "account",
-        type: "address",
-      },
-    ],
-    name: "PauserAdded",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "account",
-        type: "address",
-      },
-    ],
-    name: "PauserRemoved",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: false,
-        internalType: "address",
-        name: "_newSideTokenFactory",
-        type: "address",
-      },
-    ],
-    name: "SideTokenFactoryChanged",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: false,
-        internalType: "address",
-        name: "account",
-        type: "address",
-      },
-    ],
-    name: "Unpaused",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: false,
-        internalType: "bool",
-        name: "_isUpgrading",
-        type: "bool",
-      },
-    ],
-    name: "Upgrading",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: false,
-        internalType: "address",
-        name: "_wrappedCurrency",
-        type: "address",
-      },
-    ],
-    name: "WrappedCurrencyChanged",
-    type: "event",
-  },
-  {
-    inputs: [],
-    name: "CLAIM_TYPEHASH",
-    outputs: [{ internalType: "bytes32", name: "", type: "bytes32" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "address", name: "", type: "address" }],
-    name: "EvmToHathorTokenMap",
-    outputs: [{ internalType: "string", name: "", type: "string" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "string", name: "", type: "string" }],
-    name: "HathorToEvmTokenMap",
-    outputs: [
-      { internalType: "address", name: "tokenAddress", type: "address" },
-      { internalType: "uint256", name: "originChainId", type: "uint256" },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "address", name: "sender", type: "address" }],
-    name: "__Pausable_init",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "address", name: "sender", type: "address" }],
-    name: "__PauserRol_init",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "_originalTokenAddress",
-        type: "address",
-      },
-      { internalType: "address payable", name: "_from", type: "address" },
-      { internalType: "address payable", name: "_to", type: "address" },
-      { internalType: "uint256", name: "_amount", type: "uint256" },
-      { internalType: "bytes32", name: "_blockHash", type: "bytes32" },
-      { internalType: "bytes32", name: "_transactionHash", type: "bytes32" },
-      { internalType: "uint32", name: "_logIndex", type: "uint32" },
-      { internalType: "uint256", name: "_originChainId", type: "uint256" },
-      { internalType: "uint256", name: "_destinationChainId", type: "uint256" },
-    ],
-    name: "acceptTransfer",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "uint256", name: "originalChainId", type: "uint256" },
-      { internalType: "address", name: "token", type: "address" },
-      { internalType: "string", name: "uid", type: "string" },
-    ],
-    name: "addHathorToken",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "address", name: "account", type: "address" }],
-    name: "addPauser",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "allowTokens",
-    outputs: [
-      { internalType: "contract IAllowTokens", name: "", type: "address" },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "address", name: "newAllowTokens", type: "address" },
-    ],
-    name: "changeAllowTokens",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "address", name: "newFederation", type: "address" },
-    ],
-    name: "changeFederation",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "address", name: "newSideTokenFactory", type: "address" },
-    ],
-    name: "changeSideTokenFactory",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        components: [
-          { internalType: "address payable", name: "to", type: "address" },
-          { internalType: "uint256", name: "amount", type: "uint256" },
-          { internalType: "bytes32", name: "blockHash", type: "bytes32" },
-          { internalType: "bytes32", name: "transactionHash", type: "bytes32" },
-          { internalType: "uint32", name: "logIndex", type: "uint32" },
-          { internalType: "uint256", name: "originChainId", type: "uint256" },
-        ],
-        internalType: "struct IBridge.ClaimData",
-        name: "_claimData",
-        type: "tuple",
-      },
-    ],
-    name: "claim",
-    outputs: [
-      { internalType: "uint256", name: "receivedAmount", type: "uint256" },
-    ],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        components: [
-          { internalType: "address payable", name: "to", type: "address" },
-          { internalType: "uint256", name: "amount", type: "uint256" },
-          { internalType: "bytes32", name: "blockHash", type: "bytes32" },
-          { internalType: "bytes32", name: "transactionHash", type: "bytes32" },
-          { internalType: "uint32", name: "logIndex", type: "uint32" },
-          { internalType: "uint256", name: "originChainId", type: "uint256" },
-        ],
-        internalType: "struct IBridge.ClaimData",
-        name: "_claimData",
-        type: "tuple",
-      },
-    ],
-    name: "claimFallback",
-    outputs: [
-      { internalType: "uint256", name: "receivedAmount", type: "uint256" },
-    ],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        components: [
-          { internalType: "address payable", name: "to", type: "address" },
-          { internalType: "uint256", name: "amount", type: "uint256" },
-          { internalType: "bytes32", name: "blockHash", type: "bytes32" },
-          { internalType: "bytes32", name: "transactionHash", type: "bytes32" },
-          { internalType: "uint32", name: "logIndex", type: "uint32" },
-          { internalType: "uint256", name: "originChainId", type: "uint256" },
-        ],
-        internalType: "struct IBridge.ClaimData",
-        name: "_claimData",
-        type: "tuple",
-      },
-      { internalType: "address payable", name: "_relayer", type: "address" },
-      { internalType: "uint256", name: "_fee", type: "uint256" },
-      { internalType: "uint256", name: "_deadline", type: "uint256" },
-      { internalType: "uint8", name: "_v", type: "uint8" },
-      { internalType: "bytes32", name: "_r", type: "bytes32" },
-      { internalType: "bytes32", name: "_s", type: "bytes32" },
-    ],
-    name: "claimGasless",
-    outputs: [
-      { internalType: "uint256", name: "receivedAmount", type: "uint256" },
-    ],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "bytes32", name: "", type: "bytes32" }],
-    name: "claimed",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        components: [
-          { internalType: "uint256", name: "_typeId", type: "uint256" },
-          {
-            internalType: "address",
-            name: "_originalTokenAddress",
-            type: "address",
-          },
-          {
-            internalType: "uint8",
-            name: "_originalTokenDecimals",
-            type: "uint8",
-          },
-          {
-            internalType: "string",
-            name: "_originalTokenSymbol",
-            type: "string",
-          },
-          {
-            internalType: "string",
-            name: "_originalTokenName",
-            type: "string",
-          },
-          { internalType: "uint256", name: "_originChainId", type: "uint256" },
-        ],
-        internalType: "struct IBridge.CreateSideTokenStruct[]",
-        name: "createSideTokenStruct",
-        type: "tuple[]",
-      },
-    ],
-    name: "createMultipleSideTokens",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "uint256", name: "_typeId", type: "uint256" },
-      {
-        internalType: "address",
-        name: "_originalTokenAddress",
-        type: "address",
-      },
-      { internalType: "uint8", name: "_originalTokenDecimals", type: "uint8" },
-      { internalType: "string", name: "_tokenSymbol", type: "string" },
-      { internalType: "string", name: "_tokenName", type: "string" },
-      { internalType: "uint256", name: "_originChainId", type: "uint256" },
-    ],
-    name: "createSideToken",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "uint256", name: "chainId", type: "uint256" },
-      { internalType: "string", name: "hathorTo", type: "string" },
-    ],
-    name: "depositTo",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "address", name: "", type: "address" }],
-    name: "deprecatedKnownTokens",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "address", name: "", type: "address" }],
-    name: "deprecatedMappedTokens",
-    outputs: [{ internalType: "address", name: "", type: "address" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "address", name: "", type: "address" }],
-    name: "deprecatedOriginalTokens",
-    outputs: [{ internalType: "address", name: "", type: "address" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "deprecatedSymbolPrefix",
-    outputs: [{ internalType: "string", name: "", type: "string" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "domainSeparator",
-    outputs: [{ internalType: "bytes32", name: "", type: "bytes32" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "feePercentageDivider",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "getFederation",
-    outputs: [{ internalType: "address", name: "", type: "address" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "getFeePercentage",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "address", name: "sideToken", type: "address" }],
-    name: "getOriginalTokenBySideToken",
-    outputs: [
-      {
-        components: [
-          { internalType: "address", name: "tokenAddress", type: "address" },
-          { internalType: "uint256", name: "originChainId", type: "uint256" },
-        ],
-        internalType: "struct IBridge.OriginalToken",
-        name: "originalToken",
-        type: "tuple",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "address", name: "_to", type: "address" },
-      { internalType: "uint256", name: "_amount", type: "uint256" },
-      { internalType: "bytes32", name: "_blockHash", type: "bytes32" },
-      { internalType: "bytes32", name: "_transactionHash", type: "bytes32" },
-      { internalType: "uint32", name: "_logIndex", type: "uint32" },
-      { internalType: "uint256", name: "_originChainId", type: "uint256" },
-      { internalType: "uint256", name: "_destinationChainId", type: "uint256" },
-    ],
-    name: "getTransactionDataHash",
-    outputs: [{ internalType: "bytes32", name: "", type: "bytes32" }],
-    stateMutability: "pure",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "bytes32", name: "transactionHash", type: "bytes32" },
-    ],
-    name: "hasBeenClaimed",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "bytes32", name: "transactionHash", type: "bytes32" },
-    ],
-    name: "hasCrossed",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "initDomainSeparator",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "initialize",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "address", name: "sender", type: "address" }],
-    name: "initialize",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "address", name: "_manager", type: "address" },
-      { internalType: "address", name: "_federation", type: "address" },
-      { internalType: "address", name: "_allowTokens", type: "address" },
-      { internalType: "address", name: "_sideTokenFactory", type: "address" },
-    ],
-    name: "initialize",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        components: [
-          { internalType: "address payable", name: "to", type: "address" },
-          { internalType: "uint256", name: "amount", type: "uint256" },
-          { internalType: "bytes32", name: "blockHash", type: "bytes32" },
-          { internalType: "bytes32", name: "transactionHash", type: "bytes32" },
-          { internalType: "uint32", name: "logIndex", type: "uint32" },
-          { internalType: "uint256", name: "originChainId", type: "uint256" },
-        ],
-        internalType: "struct IBridge.ClaimData",
-        name: "_claimData",
-        type: "tuple",
-      },
-      {
-        internalType: "bytes32",
-        name: "transactionDataHashMultichain",
-        type: "bytes32",
-      },
-    ],
-    name: "isClaimed",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "bytes32", name: "transactionDataHash", type: "bytes32" },
-      {
-        internalType: "bytes32",
-        name: "transactionDataHashMultichain",
-        type: "bytes32",
-      },
-    ],
-    name: "isClaimed",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "isOwner",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "address", name: "account", type: "address" }],
-    name: "isPauser",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "isUpgrading",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "uint256", name: "chainId", type: "uint256" },
-      { internalType: "address", name: "originalToken", type: "address" },
-    ],
-    name: "knownToken",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "uint256", name: "", type: "uint256" },
-      { internalType: "address", name: "", type: "address" },
-    ],
-    name: "knownTokenByChain",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "address", name: "", type: "address" }],
-    name: "nonces",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "bytes32", name: "", type: "bytes32" }],
-    name: "originalTokenAddresses",
-    outputs: [{ internalType: "address", name: "", type: "address" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "address", name: "", type: "address" }],
-    name: "originalTokenBySideToken",
-    outputs: [
-      { internalType: "address", name: "tokenAddress", type: "address" },
-      { internalType: "uint256", name: "originChainId", type: "uint256" },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "owner",
-    outputs: [{ internalType: "address", name: "", type: "address" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "pause",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "paused",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "uint256", name: "destinationChainId", type: "uint256" },
-      { internalType: "address", name: "tokenToUse", type: "address" },
-      { internalType: "string", name: "hathorTo", type: "string" },
-      { internalType: "uint256", name: "amount", type: "uint256" },
-    ],
-    name: "receiveTokensTo",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "renounceOwnership",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "renouncePauser",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "bytes32", name: "", type: "bytes32" }],
-    name: "senderAddresses",
-    outputs: [{ internalType: "address", name: "", type: "address" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "uint256", name: "amount", type: "uint256" }],
-    name: "setFeePercentage",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "address", name: "sideToken", type: "address" },
-      {
-        components: [
-          { internalType: "address", name: "tokenAddress", type: "address" },
-          { internalType: "uint256", name: "originChainId", type: "uint256" },
-        ],
-        internalType: "struct IBridge.OriginalToken",
-        name: "originalToken",
-        type: "tuple",
-      },
-    ],
-    name: "setOriginalTokenBySideTokenByChain",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "uint256", name: "chainId", type: "uint256" },
-      { internalType: "address", name: "originalToken", type: "address" },
-      { internalType: "address", name: "sideToken", type: "address" },
-    ],
-    name: "setSideTokenByOriginalAddressByChain",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "bool", name: "_isUpgrading", type: "bool" }],
-    name: "setUpgrading",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "address", name: "_wrappedCurrency", type: "address" },
-    ],
-    name: "setWrappedCurrency",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "uint256", name: "chainId", type: "uint256" },
-      { internalType: "address", name: "originalToken", type: "address" },
-    ],
-    name: "sideTokenByOriginalToken",
-    outputs: [{ internalType: "address", name: "", type: "address" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "uint256", name: "", type: "uint256" },
-      { internalType: "address", name: "", type: "address" },
-    ],
-    name: "sideTokenByOriginalTokenByChain",
-    outputs: [{ internalType: "address", name: "", type: "address" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "sideTokenFactory",
-    outputs: [
-      { internalType: "contract ISideTokenFactory", name: "", type: "address" },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "address", name: "operator", type: "address" },
-      { internalType: "address", name: "from", type: "address" },
-      { internalType: "address", name: "to", type: "address" },
-      { internalType: "uint256", name: "amount", type: "uint256" },
-      { internalType: "bytes", name: "userData", type: "bytes" },
-      { internalType: "bytes", name: "", type: "bytes" },
-    ],
-    name: "tokensReceived",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "bytes32", name: "", type: "bytes32" }],
-    name: "transactionsDataHashes",
-    outputs: [{ internalType: "bytes32", name: "", type: "bytes32" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "address", name: "newOwner", type: "address" }],
-    name: "transferOwnership",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "string", name: "uid", type: "string" }],
-    name: "uidToAddress",
-    outputs: [{ internalType: "address", name: "", type: "address" }],
-    stateMutability: "pure",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "unpause",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "version",
-    outputs: [{ internalType: "string", name: "", type: "string" }],
-    stateMutability: "pure",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "wrappedCurrency",
-    outputs: [{ internalType: "contract IWrapped", name: "", type: "address" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  { stateMutability: "payable", type: "receive" },
-];
-const ALLOW_TOKENS_ABI = [
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "_tokenAddress",
-          "type": "address"
-        }
-      ],
-      "name": "AllowedTokenRemoved",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "_smallAmountConfirmations",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "_mediumAmountConfirmations",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "_largeAmountConfirmations",
-          "type": "uint256"
-        }
-      ],
-      "name": "ConfirmationsChanged",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "previousOwner",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "newOwner",
-          "type": "address"
-        }
-      ],
-      "name": "OwnershipTransferred",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": false,
-          "internalType": "address",
-          "name": "recipient",
-          "type": "address"
-        }
-      ],
-      "name": "PrimaryTransferred",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "_tokenAddress",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "_typeId",
-          "type": "uint256"
-        }
-      ],
-      "name": "SetToken",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "_typeId",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "string",
-          "name": "_typeDescription",
-          "type": "string"
-        }
-      ],
-      "name": "TokenTypeAdded",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "_typeId",
-          "type": "uint256"
-        },
-        {
-          "components": [
-            {
-              "internalType": "uint256",
-              "name": "min",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "max",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "daily",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "mediumAmount",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "largeAmount",
-              "type": "uint256"
-            }
-          ],
-          "indexed": false,
-          "internalType": "struct IAllowTokens.Limits",
-          "name": "limits",
-          "type": "tuple"
-        }
-      ],
-      "name": "TypeLimitsChanged",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "_tokenAddress",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "_lastDay",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "_spentToday",
-          "type": "uint256"
-        }
-      ],
-      "name": "UpdateTokensTransfered",
-      "type": "event"
-    },
-    {
-      "inputs": [],
-      "name": "MAX_TYPES",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "sender",
-          "type": "address"
-        }
-      ],
-      "name": "__Secondary_init",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "string",
-          "name": "description",
-          "type": "string"
-        },
-        {
-          "components": [
-            {
-              "internalType": "uint256",
-              "name": "min",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "max",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "daily",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "mediumAmount",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "largeAmount",
-              "type": "uint256"
-            }
-          ],
-          "internalType": "struct IAllowTokens.Limits",
-          "name": "limits",
-          "type": "tuple"
-        }
-      ],
-      "name": "addTokenType",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "len",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "name": "allowedTokens",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "allowed",
-          "type": "bool"
-        },
-        {
-          "internalType": "uint256",
-          "name": "typeId",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "spentToday",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "lastDay",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "token",
-          "type": "address"
-        }
-      ],
-      "name": "calcMaxWithdraw",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "maxWithdraw",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "getConfirmations",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "smallAmount",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "mediumAmount",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "largeAmount",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "tokenAddress",
-          "type": "address"
-        }
-      ],
-      "name": "getInfoAndLimits",
-      "outputs": [
-        {
-          "components": [
-            {
-              "internalType": "bool",
-              "name": "allowed",
-              "type": "bool"
-            },
-            {
-              "internalType": "uint256",
-              "name": "typeId",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "spentToday",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "lastDay",
-              "type": "uint256"
-            }
-          ],
-          "internalType": "struct IAllowTokens.TokenInfo",
-          "name": "info",
-          "type": "tuple"
-        },
-        {
-          "components": [
-            {
-              "internalType": "uint256",
-              "name": "min",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "max",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "daily",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "mediumAmount",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "largeAmount",
-              "type": "uint256"
-            }
-          ],
-          "internalType": "struct IAllowTokens.Limits",
-          "name": "limit",
-          "type": "tuple"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "getTypeDescriptions",
-      "outputs": [
-        {
-          "internalType": "string[]",
-          "name": "descriptions",
-          "type": "string[]"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "getTypeDescriptionsLength",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "getTypesLimits",
-      "outputs": [
-        {
-          "components": [
-            {
-              "internalType": "uint256",
-              "name": "min",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "max",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "daily",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "mediumAmount",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "largeAmount",
-              "type": "uint256"
-            }
-          ],
-          "internalType": "struct IAllowTokens.Limits[]",
-          "name": "limits",
-          "type": "tuple[]"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "sender",
-          "type": "address"
-        }
-      ],
-      "name": "initialize",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "_manager",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "_primary",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "_smallAmountConfirmations",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "_mediumAmountConfirmations",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "_largeAmountConfirmations",
-          "type": "uint256"
-        },
-        {
-          "components": [
-            {
-              "internalType": "string",
-              "name": "description",
-              "type": "string"
-            },
-            {
-              "components": [
-                {
-                  "internalType": "uint256",
-                  "name": "min",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "max",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "daily",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "mediumAmount",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "largeAmount",
-                  "type": "uint256"
-                }
-              ],
-              "internalType": "struct IAllowTokens.Limits",
-              "name": "limits",
-              "type": "tuple"
-            }
-          ],
-          "internalType": "struct IAllowTokens.TypeInfo[]",
-          "name": "typesInfo",
-          "type": "tuple[]"
-        }
-      ],
-      "name": "initialize",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "isOwner",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "token",
-          "type": "address"
-        }
-      ],
-      "name": "isTokenAllowed",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "largeAmountConfirmations",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "mediumAmountConfirmations",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "owner",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "primary",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "token",
-          "type": "address"
-        }
-      ],
-      "name": "removeAllowedToken",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "renounceOwnership",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "_smallAmountConfirmations",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "_mediumAmountConfirmations",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "_largeAmountConfirmations",
-          "type": "uint256"
-        }
-      ],
-      "name": "setConfirmations",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "components": [
-            {
-              "internalType": "address",
-              "name": "token",
-              "type": "address"
-            },
-            {
-              "internalType": "uint256",
-              "name": "typeId",
-              "type": "uint256"
-            }
-          ],
-          "internalType": "struct IAllowTokens.TokensAndType[]",
-          "name": "tokensAndTypes",
-          "type": "tuple[]"
-        }
-      ],
-      "name": "setMultipleTokens",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "token",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "typeId",
-          "type": "uint256"
-        }
-      ],
-      "name": "setToken",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "typeId",
-          "type": "uint256"
-        },
-        {
-          "components": [
-            {
-              "internalType": "uint256",
-              "name": "min",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "max",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "daily",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "mediumAmount",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "largeAmount",
-              "type": "uint256"
-            }
-          ],
-          "internalType": "struct IAllowTokens.Limits",
-          "name": "limits",
-          "type": "tuple"
-        }
-      ],
-      "name": "setTypeLimits",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "smallAmountConfirmations",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "tokenAddress",
-          "type": "address"
-        }
-      ],
-      "name": "tokenInfo",
-      "outputs": [
-        {
-          "components": [
-            {
-              "internalType": "bool",
-              "name": "allowed",
-              "type": "bool"
-            },
-            {
-              "internalType": "uint256",
-              "name": "typeId",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "spentToday",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "lastDay",
-              "type": "uint256"
-            }
-          ],
-          "internalType": "struct IAllowTokens.TokenInfo",
-          "name": "",
-          "type": "tuple"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "newOwner",
-          "type": "address"
-        }
-      ],
-      "name": "transferOwnership",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "recipient",
-          "type": "address"
-        }
-      ],
-      "name": "transferPrimary",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "typeDescriptions",
-      "outputs": [
-        {
-          "internalType": "string",
-          "name": "",
-          "type": "string"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "typeLimits",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "min",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "max",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "daily",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "mediumAmount",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "largeAmount",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "token",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        }
-      ],
-      "name": "updateTokenTransfer",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "version",
-      "outputs": [
-        {
-          "internalType": "string",
-          "name": "",
-          "type": "string"
-        }
-      ],
-      "stateMutability": "pure",
-      "type": "function"
-    }
-  ];
+let BRIDGE_ABI, ALLOW_TOKENS_ABI, ERC20_ABI, FEDERATION_ABI, HATHOR_FEDERATION_ABI; 
+loadAbi('bridge', (abi) => { BRIDGE_ABI = abi; });
+loadAbi('allowtokens', (abi) => { ALLOW_TOKENS_ABI = abi; });
+loadAbi('erc20', (abi) => { ERC20_ABI = abi; });
+loadAbi('federation', (abi) => { FEDERATION_ABI = abi; });
+loadAbi('hathorFederation', (abi) => { HATHOR_FEDERATION_ABI = abi; });
 
-const ERC20_ABI = [
-  {
-    inputs: [
-      { internalType: "string", name: "name", type: "string" },
-      { internalType: "string", name: "symbol", type: "string" },
-      { internalType: "uint8", name: "decimals", type: "uint8" },
-    ],
-    payable: false,
-    stateMutability: "nonpayable",
-    type: "constructor",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "owner",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "spender",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "value",
-        type: "uint256",
-      },
-    ],
-    name: "Approval",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: true, internalType: "address", name: "from", type: "address" },
-      { indexed: true, internalType: "address", name: "to", type: "address" },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "value",
-        type: "uint256",
-      },
-    ],
-    name: "Transfer",
-    type: "event",
-  },
-  {
-    constant: true,
-    inputs: [
-      { internalType: "address", name: "owner", type: "address" },
-      { internalType: "address", name: "spender", type: "address" },
-    ],
-    name: "allowance",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-    payable: false,
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    constant: false,
-    inputs: [
-      { internalType: "address", name: "spender", type: "address" },
-      { internalType: "uint256", name: "amount", type: "uint256" },
-    ],
-    name: "approve",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    payable: false,
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    constant: true,
-    inputs: [{ internalType: "address", name: "account", type: "address" }],
-    name: "balanceOf",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-    payable: false,
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    constant: true,
-    inputs: [],
-    name: "totalSupply",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-    payable: false,
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    constant: false,
-    inputs: [
-      { internalType: "address", name: "recipient", type: "address" },
-      { internalType: "uint256", name: "amount", type: "uint256" },
-    ],
-    name: "transfer",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    payable: false,
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    constant: false,
-    inputs: [
-      { internalType: "address", name: "sender", type: "address" },
-      { internalType: "address", name: "recipient", type: "address" },
-      { internalType: "uint256", name: "amount", type: "uint256" },
-    ],
-    name: "transferFrom",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    payable: false,
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    constant: true,
-    inputs: [],
-    name: "name",
-    outputs: [{ internalType: "string", name: "", type: "string" }],
-    payable: false,
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    constant: true,
-    inputs: [],
-    name: "symbol",
-    outputs: [{ internalType: "string", name: "", type: "string" }],
-    payable: false,
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    constant: true,
-    inputs: [],
-    name: "decimals",
-    outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
-    payable: false,
-    stateMutability: "view",
-    type: "function",
-  },
-];
+function loadAbi(abi, callback) {
+  fetch(`../abis/${abi}.json`)
+    .then(async (response) => 
+    {
+      const abi = await response.json()
+      callback(abi);
+    });
+};
 
-const FEDERATION_ABI = [
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: false,
-        internalType: "address",
-        name: "bridge",
-        type: "address",
-      },
-    ],
-    name: "BridgeChanged",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "federator",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "bytes32",
-        name: "transactionHash",
-        type: "bytes32",
-      },
-      {
-        indexed: true,
-        internalType: "bytes32",
-        name: "transactionId",
-        type: "bytes32",
-      },
-      {
-        indexed: false,
-        internalType: "address",
-        name: "originalTokenAddress",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "address",
-        name: "sender",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "address",
-        name: "receiver",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "amount",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "bytes32",
-        name: "blockHash",
-        type: "bytes32",
-      },
-      {
-        indexed: false,
-        internalType: "uint32",
-        name: "logIndex",
-        type: "uint32",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "originChainId",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "destinationChainId",
-        type: "uint256",
-      },
-    ],
-    name: "Executed",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "sender",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "currentChainId",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "currentBlock",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "string",
-        name: "fedVersion",
-        type: "string",
-      },
-      {
-        indexed: false,
-        internalType: "uint256[]",
-        name: "fedChainsIds",
-        type: "uint256[]",
-      },
-      {
-        indexed: false,
-        internalType: "uint256[]",
-        name: "fedChainsBlocks",
-        type: "uint256[]",
-      },
-      {
-        indexed: false,
-        internalType: "string[]",
-        name: "fedChainsInfo",
-        type: "string[]",
-      },
-    ],
-    name: "HeartBeat",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "member",
-        type: "address",
-      },
-    ],
-    name: "MemberAddition",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "member",
-        type: "address",
-      },
-    ],
-    name: "MemberRemoval",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "previousOwner",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "newOwner",
-        type: "address",
-      },
-    ],
-    name: "OwnershipTransferred",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "required",
-        type: "uint256",
-      },
-    ],
-    name: "RequirementChange",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "federator",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "bytes32",
-        name: "transactionHash",
-        type: "bytes32",
-      },
-      {
-        indexed: true,
-        internalType: "bytes32",
-        name: "transactionId",
-        type: "bytes32",
-      },
-      {
-        indexed: false,
-        internalType: "address",
-        name: "originalTokenAddress",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "address",
-        name: "sender",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "address",
-        name: "receiver",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "amount",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "bytes32",
-        name: "blockHash",
-        type: "bytes32",
-      },
-      {
-        indexed: false,
-        internalType: "uint32",
-        name: "logIndex",
-        type: "uint32",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "originChainId",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "destinationChainId",
-        type: "uint256",
-      },
-    ],
-    name: "Voted",
-    type: "event",
-  },
-  {
-    inputs: [],
-    name: "MAX_MEMBER_COUNT",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "address", name: "_newMember", type: "address" }],
-    name: "addMember",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "bridge",
-    outputs: [{ internalType: "contract IBridge", name: "", type: "address" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "uint256", name: "_required", type: "uint256" }],
-    name: "changeRequirement",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "string", name: "fedVersion", type: "string" },
-      { internalType: "uint256[]", name: "fedChainsIds", type: "uint256[]" },
-      { internalType: "uint256[]", name: "fedChainsBlocks", type: "uint256[]" },
-      { internalType: "string[]", name: "fedChainsInfo", type: "string[]" },
-    ],
-    name: "emitHeartbeat",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "getMembers",
-    outputs: [{ internalType: "address[]", name: "", type: "address[]" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "bytes32", name: "transactionId", type: "bytes32" },
-    ],
-    name: "getTransactionCount",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "originalTokenAddress",
-        type: "address",
-      },
-      { internalType: "address", name: "sender", type: "address" },
-      { internalType: "address", name: "receiver", type: "address" },
-      { internalType: "uint256", name: "amount", type: "uint256" },
-      { internalType: "bytes32", name: "blockHash", type: "bytes32" },
-      { internalType: "bytes32", name: "transactionHash", type: "bytes32" },
-      { internalType: "uint32", name: "logIndex", type: "uint32" },
-      { internalType: "uint256", name: "originChainId", type: "uint256" },
-      { internalType: "uint256", name: "destinationChainId", type: "uint256" },
-    ],
-    name: "getTransactionId",
-    outputs: [{ internalType: "bytes32", name: "", type: "bytes32" }],
-    stateMutability: "pure",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "bytes32", name: "transactionId", type: "bytes32" },
-    ],
-    name: "hasVoted",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "address[]", name: "_members", type: "address[]" },
-      { internalType: "uint256", name: "_required", type: "uint256" },
-      { internalType: "address", name: "_bridge", type: "address" },
-      { internalType: "address", name: "owner", type: "address" },
-    ],
-    name: "initialize",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "address", name: "sender", type: "address" }],
-    name: "initialize",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "address", name: "", type: "address" }],
-    name: "isMember",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "isOwner",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "bytes32", name: "transactionId", type: "bytes32" },
-      {
-        internalType: "bytes32",
-        name: "transactionIdMultichain",
-        type: "bytes32",
-      },
-    ],
-    name: "isProcessed",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "bytes32", name: "transactionId", type: "bytes32" },
-      {
-        internalType: "bytes32",
-        name: "transactionIdMultichain",
-        type: "bytes32",
-      },
-    ],
-    name: "isVoted",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-    name: "members",
-    outputs: [{ internalType: "address", name: "", type: "address" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "owner",
-    outputs: [{ internalType: "address", name: "", type: "address" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "bytes32", name: "", type: "bytes32" }],
-    name: "processed",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "address", name: "_oldMember", type: "address" }],
-    name: "removeMember",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "renounceOwnership",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "required",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "address", name: "_bridge", type: "address" }],
-    name: "setBridge",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "bytes32", name: "transactionId", type: "bytes32" },
-    ],
-    name: "transactionWasProcessed",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "address", name: "newOwner", type: "address" }],
-    name: "transferOwnership",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "version",
-    outputs: [{ internalType: "string", name: "", type: "string" }],
-    stateMutability: "pure",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "originalTokenAddress",
-        type: "address",
-      },
-      { internalType: "address payable", name: "sender", type: "address" },
-      { internalType: "address payable", name: "receiver", type: "address" },
-      { internalType: "uint256", name: "value", type: "uint256" },
-      { internalType: "bytes32", name: "blockHash", type: "bytes32" },
-      { internalType: "bytes32", name: "transactionHash", type: "bytes32" },
-      { internalType: "uint32", name: "logIndex", type: "uint32" },
-      { internalType: "uint256", name: "originChainId", type: "uint256" },
-      { internalType: "uint256", name: "destinationChainId", type: "uint256" },
-    ],
-    name: "voteTransaction",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "bytes32", name: "", type: "bytes32" },
-      { internalType: "address", name: "", type: "address" },
-    ],
-    name: "votes",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function",
-  },
-];
 // --------- ABI  END --------------
 
 // --------- TOKENS --------------
@@ -4084,6 +1503,7 @@ const HATHOR_NATIVE_TOKEN = {
   31: {
     symbol: "HTR",
     address: "0xE3f0Ae350EE09657933CD8202A4dd563c5af941F",
+    hathorAddr: "00",
     decimals: 18,
   },
 };
@@ -4100,9 +1520,27 @@ const EVM_NATIVE_TOKEN = {
   31: {
     symbol: "hSLT7",
     address: "0xAF8aD2C33c2c9a48CD906A4c5952A835FeB25696",
+    hathorAddr: "0x000002c993795c9ef5b894571af2277aaf344438c2f8608a50daccc6ace7c0a1",
     decimals: 18,
   },
 };
 
-const TOKENS = [HATHOR_NATIVE_TOKEN, EVM_NATIVE_TOKEN];
+const USDC_TOKEN = {
+  token: "USDC",
+  name: "USDC",
+  icon: "https://assets.coingecko.com/coins/images/279/standard/ethereum.png?1696501628",
+  11155111: {
+    symbol: "USDC",
+    address: "0x3E1Adb4e24a48B90ca10c28388cE733a6267BAc4",
+    decimals: 6,
+  },
+  31: {
+    symbol: "hUSDC",
+    address: "0xA3FBbF66380dEEce7b7f7dC4BEA6267c05bB383D",
+    hathorAddr: "0x000000005c3e8f7118140bcfbf2032a1a0abbca3b47205731880bba6b87cba8f",
+    decimals: 6,
+  },
+};
+
+const TOKENS = [HATHOR_NATIVE_TOKEN, EVM_NATIVE_TOKEN, USDC_TOKEN];
 // --------- TOKENS  END --------------

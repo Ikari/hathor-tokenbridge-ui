@@ -58,6 +58,7 @@
         cb(number);
 
         let intervalId = setInterval(async () => {
+            console.log('updating...');
             let { number } = await web3.eth.getBlock('latest');
             cb(number);
         }, interval);

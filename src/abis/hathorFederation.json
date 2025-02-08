@@ -1,0 +1,817 @@
+[
+    {
+        "inputs": [
+            {
+                "internalType": "address[]",
+                "name": "_members",
+                "type": "address[]"
+            },
+            {
+                "internalType": "address",
+                "name": "owner",
+                "type": "address"
+            }
+        ],
+        "stateMutability": "nonpayable",
+        "type": "constructor"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "owner",
+                "type": "address"
+            }
+        ],
+        "name": "OwnableInvalidOwner",
+        "type": "error"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "account",
+                "type": "address"
+            }
+        ],
+        "name": "OwnableUnauthorizedAccount",
+        "type": "error"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": false,
+                "internalType": "bytes",
+                "name": "txHex",
+                "type": "bytes"
+            }
+        ],
+        "name": "LockTransactionHex",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "member",
+                "type": "address"
+            }
+        ],
+        "name": "MemberAddition",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "member",
+                "type": "address"
+            }
+        ],
+        "name": "MemberRemoval",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "previousOwner",
+                "type": "address"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "newOwner",
+                "type": "address"
+            }
+        ],
+        "name": "OwnershipTransferred",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": false,
+                "internalType": "bytes32",
+                "name": "originalTokenAddress",
+                "type": "bytes32"
+            },
+            {
+                "indexed": false,
+                "internalType": "bytes32",
+                "name": "transactionHash",
+                "type": "bytes32"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "value",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "sender",
+                "type": "string"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "receiver",
+                "type": "string"
+            },
+            {
+                "indexed": false,
+                "internalType": "enum HathorFederation.TransactionType",
+                "name": "transactionType",
+                "type": "uint8"
+            },
+            {
+                "indexed": true,
+                "internalType": "bytes32",
+                "name": "transactionId",
+                "type": "bytes32"
+            },
+            {
+                "indexed": false,
+                "internalType": "bool",
+                "name": "processed",
+                "type": "bool"
+            },
+            {
+                "indexed": false,
+                "internalType": "bytes32",
+                "name": "hathorTxId",
+                "type": "bytes32"
+            }
+        ],
+        "name": "ProposalSent",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": false,
+                "internalType": "bytes32",
+                "name": "originalTokenAddress",
+                "type": "bytes32"
+            },
+            {
+                "indexed": false,
+                "internalType": "bytes32",
+                "name": "transactionHash",
+                "type": "bytes32"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "value",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "sender",
+                "type": "string"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "receiver",
+                "type": "string"
+            },
+            {
+                "indexed": false,
+                "internalType": "enum HathorFederation.TransactionType",
+                "name": "transactionType",
+                "type": "uint8"
+            },
+            {
+                "indexed": true,
+                "internalType": "bytes32",
+                "name": "transactionId",
+                "type": "bytes32"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "member",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "bool",
+                "name": "signed",
+                "type": "bool"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "signature",
+                "type": "string"
+            }
+        ],
+        "name": "ProposalSigned",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "bytes32",
+                "name": "transactionId",
+                "type": "bytes32"
+            },
+            {
+                "indexed": false,
+                "internalType": "address",
+                "name": "member",
+                "type": "address"
+            }
+        ],
+        "name": "SignaturaFailed",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": false,
+                "internalType": "bytes32",
+                "name": "originalTokenAddress",
+                "type": "bytes32"
+            },
+            {
+                "indexed": false,
+                "internalType": "bytes32",
+                "name": "transactionHash",
+                "type": "bytes32"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "value",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "sender",
+                "type": "string"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "receiver",
+                "type": "string"
+            },
+            {
+                "indexed": false,
+                "internalType": "enum HathorFederation.TransactionType",
+                "name": "transactionType",
+                "type": "uint8"
+            },
+            {
+                "indexed": true,
+                "internalType": "bytes32",
+                "name": "transactionId",
+                "type": "bytes32"
+            }
+        ],
+        "name": "TransactionFailed",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": false,
+                "internalType": "bytes32",
+                "name": "originalTokenAddress",
+                "type": "bytes32"
+            },
+            {
+                "indexed": false,
+                "internalType": "bytes32",
+                "name": "transactionHash",
+                "type": "bytes32"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "value",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "sender",
+                "type": "string"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "receiver",
+                "type": "string"
+            },
+            {
+                "indexed": false,
+                "internalType": "enum HathorFederation.TransactionType",
+                "name": "transactionType",
+                "type": "uint8"
+            },
+            {
+                "indexed": false,
+                "internalType": "bytes32",
+                "name": "transactionId",
+                "type": "bytes32"
+            },
+            {
+                "indexed": false,
+                "internalType": "bytes",
+                "name": "txHex",
+                "type": "bytes"
+            }
+        ],
+        "name": "TransactionProposed",
+        "type": "event"
+    },
+    {
+        "inputs": [],
+        "name": "MAX_MEMBER_COUNT",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "_newMember",
+                "type": "address"
+            }
+        ],
+        "name": "addMember",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "getMembers",
+        "outputs": [
+            {
+                "internalType": "address[]",
+                "name": "",
+                "type": "address[]"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "transactionId",
+                "type": "bytes32"
+            }
+        ],
+        "name": "getSignatureCount",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "originalTokenAddress",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "bytes32",
+                "name": "transactionHash",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "uint256",
+                "name": "value",
+                "type": "uint256"
+            },
+            {
+                "internalType": "string",
+                "name": "sender",
+                "type": "string"
+            },
+            {
+                "internalType": "string",
+                "name": "receiver",
+                "type": "string"
+            },
+            {
+                "internalType": "enum HathorFederation.TransactionType",
+                "name": "transactionType",
+                "type": "uint8"
+            }
+        ],
+        "name": "getTransactionId",
+        "outputs": [
+            {
+                "internalType": "bytes32",
+                "name": "",
+                "type": "bytes32"
+            }
+        ],
+        "stateMutability": "pure",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "",
+                "type": "address"
+            }
+        ],
+        "name": "isMember",
+        "outputs": [
+            {
+                "internalType": "bool",
+                "name": "",
+                "type": "bool"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "",
+                "type": "bytes32"
+            }
+        ],
+        "name": "isProcessed",
+        "outputs": [
+            {
+                "internalType": "bool",
+                "name": "",
+                "type": "bool"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "",
+                "type": "bytes32"
+            }
+        ],
+        "name": "isProposed",
+        "outputs": [
+            {
+                "internalType": "bool",
+                "name": "",
+                "type": "bool"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "address",
+                "name": "",
+                "type": "address"
+            }
+        ],
+        "name": "isSigned",
+        "outputs": [
+            {
+                "internalType": "bool",
+                "name": "",
+                "type": "bool"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "name": "members",
+        "outputs": [
+            {
+                "internalType": "address",
+                "name": "",
+                "type": "address"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "owner",
+        "outputs": [
+            {
+                "internalType": "address",
+                "name": "",
+                "type": "address"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "_oldMember",
+                "type": "address"
+            }
+        ],
+        "name": "removeMember",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "renounceOwnership",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "originalTokenAddress",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "bytes32",
+                "name": "transactionHash",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "uint256",
+                "name": "value",
+                "type": "uint256"
+            },
+            {
+                "internalType": "string",
+                "name": "sender",
+                "type": "string"
+            },
+            {
+                "internalType": "string",
+                "name": "receiver",
+                "type": "string"
+            },
+            {
+                "internalType": "enum HathorFederation.TransactionType",
+                "name": "transactionType",
+                "type": "uint8"
+            },
+            {
+                "internalType": "bytes",
+                "name": "txHex",
+                "type": "bytes"
+            }
+        ],
+        "name": "sendTransactionProposal",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "originalTokenAddress",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "bytes32",
+                "name": "transactionHash",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "uint256",
+                "name": "value",
+                "type": "uint256"
+            },
+            {
+                "internalType": "string",
+                "name": "sender",
+                "type": "string"
+            },
+            {
+                "internalType": "string",
+                "name": "receiver",
+                "type": "string"
+            },
+            {
+                "internalType": "enum HathorFederation.TransactionType",
+                "name": "transactionType",
+                "type": "uint8"
+            }
+        ],
+        "name": "setTransactionFailed",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "",
+                "type": "bytes32"
+            }
+        ],
+        "name": "transactionHex",
+        "outputs": [
+            {
+                "internalType": "bytes",
+                "name": "",
+                "type": "bytes"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "name": "transactionSignatures",
+        "outputs": [
+            {
+                "internalType": "string",
+                "name": "signature",
+                "type": "string"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "newOwner",
+                "type": "address"
+            }
+        ],
+        "name": "transferOwnership",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "originalTokenAddress",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "bytes32",
+                "name": "transactionHash",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "uint256",
+                "name": "value",
+                "type": "uint256"
+            },
+            {
+                "internalType": "string",
+                "name": "sender",
+                "type": "string"
+            },
+            {
+                "internalType": "string",
+                "name": "receiver",
+                "type": "string"
+            },
+            {
+                "internalType": "enum HathorFederation.TransactionType",
+                "name": "transactionType",
+                "type": "uint8"
+            },
+            {
+                "internalType": "string",
+                "name": "signature",
+                "type": "string"
+            },
+            {
+                "internalType": "bool",
+                "name": "signed",
+                "type": "bool"
+            }
+        ],
+        "name": "updateSignatureState",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "originalTokenAddress",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "bytes32",
+                "name": "transactionHash",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "uint256",
+                "name": "value",
+                "type": "uint256"
+            },
+            {
+                "internalType": "string",
+                "name": "sender",
+                "type": "string"
+            },
+            {
+                "internalType": "string",
+                "name": "receiver",
+                "type": "string"
+            },
+            {
+                "internalType": "enum HathorFederation.TransactionType",
+                "name": "transactionType",
+                "type": "uint8"
+            },
+            {
+                "internalType": "bool",
+                "name": "sent",
+                "type": "bool"
+            },
+            {
+                "internalType": "bytes32",
+                "name": "hathorTxId",
+                "type": "bytes32"
+            }
+        ],
+        "name": "updateTransactionState",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    }
+]

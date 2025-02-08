@@ -50,11 +50,20 @@ class TXN_Storage {
         this.serializeTxns(key, [...txns, data]);
     }
 
-    static deleteTxn(accountAddress, txnId = "") {
-        let key = `${accountAddress}-txns`;
-        let {_, txns = []} = this.unserializeTxns(key);
-        let toKeepTransactions = txns.filter(tx => txnId != tx.transactionHash);
-        this.serializeTxns(key, toKeepTransactions);
+    static addHathorTxn(accountAddress, networkName = "", data = {}) {
+        let key = `${accountAddress}-${networkName.toLowerCase().replace(" ", '-')}`;
+        let { txns } = this.unserializeTxns(key);
+
+        const tx = txns.find(tx => tx?.transactionHash === data.transactionHash);
+
+        if (!tx || tx != null){
+
+            if (data.status === tx?.status) return;
+
+            txns = txns.filter(tx => data.transactionHash != tx.transactionHash);
+        }
+        
+        this.serializeTxns(key, [...txns, data]);
     }
 
     static unserializeTxns(key = "") {
@@ -67,5 +76,4 @@ class TXN_Storage {
         this.Storage.removeItem(key.toLowerCase());
         this.Storage.setItem(key.toLowerCase(), JSON.stringify(transactions));
     }
-
 }
