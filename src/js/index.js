@@ -85,12 +85,20 @@ $(document).ready(function () {
     showEvmTxsnTabe();
   });
 
-  $("#tokenAddress").change(function (event) {
+  $("#tokenAddress").change(async function (event) {
     cleanAlertSuccess();
     let token = TOKENS.find(
       (element) => element.token == event.currentTarget.value
     );
     if (token) {
+
+      tokenContract = new web3.eth.Contract(ERC20_ABI, token[config.networkId].address);
+
+      const balance = await tokenContract.methods.balanceOf(address).call();
+
+      $(".tokenAddress-label").text(`You own ${balance / Math.pow(10, token[config.networkId].decimals)}`)
+
+
       $(".selectedToken").html(token[config.networkId].symbol);
       let html = `<a target="_blank" href="${
         config.crossToNetwork.explorer
@@ -117,7 +125,7 @@ $(document).ready(function () {
       $("#willReceive-copy").hide();
     }
 
-    setInfoTab(token[11155111].address);
+    setInfoTab(token[config.networkId].address);
   });
 
   $("#amount").keyup(function (event) {
@@ -1102,7 +1110,6 @@ function showEvmTxsnTabe() {
   $("#nav-htr-eth").removeClass("active show");
 }
 
-
 function showHtrTxsnTabe() {
   $("#nav-htr-eth-tab").addClass("active").attr("aria-selected", true);
   $("#nav-htr-eth").addClass("active show");
@@ -1201,10 +1208,10 @@ function showActiveAddressTXNs() {
   };
 
   const activeAddressTXNseth2HtrRows = eth2HtrTxns.map((txn) => {
-    return processHtrTxn(txn, config);
+    return processHtrTxn(txn, config.crossToNetwork);
   });
   const activeAddressTXNshtr2EthRows = htr2EthTxns.map((txn) => {
-    return processTxn(txn, config.crossToNetwork);
+    return processTxn(txn, config);
   });
 
   eth2HtrTable.html(activeAddressTXNseth2HtrRows.join());
@@ -1344,7 +1351,7 @@ function updateTokenAddressDropdown(networkId) {
 
 function updateTokenListTab() {
   let htrConfig = SEPOLIA_CONFIG;
-  if (!isTestnet) htrConfig = HTR_MAINNET_CONFIG;
+  if (!isTestnet) htrConfig = ETH_CONFIG;
 
   let tabHtml = `<div class="row mb-3 justify-content-center text-center">`;
   tabHtml += `\n    <div class="col-5">`;
@@ -1383,9 +1390,9 @@ function updateTokenListTab() {
       tabHtml += `\n      <div class="col-8 font-weight-bold">`;
       tabHtml += `\n          <a href="${
         htrConfig.crossToNetwork.explorer
-      }/address/${aToken[
+      }/${htrConfig.crossToNetwork.explorerTokenTab}/${aToken[
         htrConfig.crossToNetwork.networkId
-      ].address.toLowerCase()}" class="address" target="_blank">`;
+      ].pureHtrAddress.toLowerCase()}" class="address" target="_blank">`;
       tabHtml += `\n              <span><img src="${
         aToken.icon
       }" class="token-logo"></span>${
@@ -1396,7 +1403,7 @@ function updateTokenListTab() {
       tabHtml += `\n      <div class="col-4">`;
       tabHtml += `\n          <button class="copy btn btn-outline-secondary" type="button" data-clipboard-text="${aToken[
         htrConfig.crossToNetwork.networkId
-      ].address.toLowerCase()}" data-toggle="tooltip" data-placement="bottom" title="Copy the address">`;
+      ].pureHtrAddress.toLowerCase()}" data-toggle="tooltip" data-placement="bottom" title="Copy the address">`;
       tabHtml += `\n              <i class="far fa-copy"></i>`;
       tabHtml += `\n          </button>`;
       tabHtml += `\n      </div>`;
@@ -1423,7 +1430,7 @@ let SEPOLIA_CONFIG = {
   bridge: "0x7e11388186127b720513864bb445882ae611e1f6",
   allowTokens: "0x278f39c10128e0e23bb1b65f0b4187200a9b061b",
   federation: "0x7a48b9cd441f2457c5131fe1cb6301110fe3e6cd",
-  explorer: "https://sepolia.etherscan.io/",
+  explorer: "https://sepolia.etherscan.io",
   explorerTokenTab: "#tokentxns",
   confirmations: 10,
   confirmationTime: "30 minutes",
@@ -1433,8 +1440,8 @@ let HTR_TESTNET_CONFIG = {
   networkId: 31,
   name: "Golf",
   federation: "0xeB8457a67e5575FbE350b9A7084D1eEa7B5415F7",
-  explorer: "https://explorer.testnet.hathor.network/",
-  explorerTokenTab: "token_detail/",
+  explorer: "https://explorer.testnet.hathor.network",
+  explorerTokenTab: "token_detail",
   confirmations: 2,
   confirmationTime: "30 minutes",
   secondsPerBlock: 30,
@@ -1504,6 +1511,7 @@ const HATHOR_NATIVE_TOKEN = {
     symbol: "HTR",
     address: "0xE3f0Ae350EE09657933CD8202A4dd563c5af941F",
     hathorAddr: "00",
+    pureHtrAddress: "00",
     decimals: 18,
   },
 };
@@ -1521,6 +1529,7 @@ const EVM_NATIVE_TOKEN = {
     symbol: "hSLT7",
     address: "0xAF8aD2C33c2c9a48CD906A4c5952A835FeB25696",
     hathorAddr: "0x000002c993795c9ef5b894571af2277aaf344438c2f8608a50daccc6ace7c0a1",
+    pureHtrAddress: "000002c993795c9ef5b894571af2277aaf344438c2f8608a50daccc6ace7c0a1",
     decimals: 18,
   },
 };
@@ -1538,6 +1547,7 @@ const USDC_TOKEN = {
     symbol: "hUSDC",
     address: "0xA3FBbF66380dEEce7b7f7dC4BEA6267c05bB383D",
     hathorAddr: "0x000000005c3e8f7118140bcfbf2032a1a0abbca3b47205731880bba6b87cba8f",
+    pureHtrAddress: "000000005c3e8f7118140bcfbf2032a1a0abbca3b47205731880bba6b87cba8f",
     decimals: 6,
   },
 };
