@@ -83,6 +83,8 @@ $(document).ready(function () {
 
   $("#claimTokens").click(function () {
     showEvmTxsnTabe();
+    location.hash = "";
+    location.hash = `#nav-eth-htr-tab`;
   });
 
   $("#tokenAddress").change(async function (event) {
@@ -518,7 +520,7 @@ async function getMaxBalance(event) {
   return retry3Times(tokenContract.methods.balanceOf(address).call)
   .then(async (balance) => {
       balanceBNs = new BigNumber(balance).shiftedBy(-decimals);
-      let maxWithdrawInWei = await retry3Times(bridgeContract.methods.calcMaxWithdraw().call);
+      let maxWithdrawInWei = await retry3Times(allowTokensContract.methods.calcMaxWithdraw(tokenAddress).call);
       let maxWithdraw = new BigNumber(web3.utils.fromWei(maxWithdrawInWei, 'ether'));
       let maxValue = 0;
       if( balanceBNs.isGreaterThan(maxWithdraw)) {
@@ -700,12 +702,12 @@ async function crossToken() {
           )} ${token[config.networkId].symbol}`
         );
       }
-      //TODO understand if is going to be a issue
-      // let maxWithdrawInWei = await retry3Times(bridgeContract.methods.calcMaxWithdraw().call);
-      // const maxWithdraw = new BN(maxWithdrawInWei);
-      // if(amountBN.gt(maxWithdraw)) {
-      //     throw new Error(`Amount bigger than the daily limit. Daily limit left ${web3.utils.fromWei(maxWithdrawInWei, 'ether')} tokens`);
-      // }
+
+      let maxWithdrawInWei = await retry3Times(allowTokensContract.methods.calcMaxWithdraw(tokenAddress).call);
+      const maxWithdraw = new BN(maxWithdrawInWei);
+      if(amountBN.gt(maxWithdraw)) {
+          throw new Error(`Amount bigger than the daily limit. Daily limit left ${web3.utils.fromWei(maxWithdrawInWei, 'ether')} tokens`);
+      }
 
       var gasPriceParsed = 0;
       if (config.networkId >= 30 && config.networkId <= 33) {
@@ -1537,7 +1539,7 @@ const EVM_NATIVE_TOKEN = {
 const USDC_TOKEN = {
   token: "USDC",
   name: "USDC",
-  icon: "https://assets.coingecko.com/coins/images/279/standard/ethereum.png?1696501628",
+  icon: "https://assets.coingecko.com/coins/images/6319/standard/usdc.png?1696506694",
   11155111: {
     symbol: "USDC",
     address: "0x3E1Adb4e24a48B90ca10c28388cE733a6267BAc4",
