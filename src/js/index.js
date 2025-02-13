@@ -28,6 +28,7 @@ let feePercentageDivider = 10_000;
 let rLogin;
 let pollingLastBlockIntervalId = 0;
 let DateTime = luxon.DateTime;
+const host = "https://arbitrum-mainnet.infura.io/v3/399500b5679b442eb991fefee1c5bfdc";
 
 $(document).ready(function () {
   new ClipboardJS(".copy");
@@ -57,9 +58,9 @@ $(document).ready(function () {
   $("#logIn").attr("onclick", "onLogInClick()");
 
   let rpc = {
-    1: "https://mainnet.infura.io/v3/8043bb2cf99347b1bfadfb233c5325c0",
+    42161: host,
   };
-  supportedChains = [1];
+  supportedChains = [42161];
   if (isTestnet) {
     rpc = {
       11155111: "https://sepolia.infura.io/v3/399500b5679b442eb991fefee1c5bfdc",
@@ -198,7 +199,7 @@ async function fillHathorToEvmTxs() {
 
 async function getPendingHathorTxs(claims) {
 if (!hathorFederationContract) {
-    const prvdr = new Web3(new Web3.providers.HttpProvider('https://arb-sepolia.g.alchemy.com/v2/uZC_k6qzUFbIP5MigPnBCvry-n9M-gOV'));
+    const prvdr = new Web3(new Web3.providers.HttpProvider(host));
     hathorFederationContract = new prvdr.eth.Contract(HATHOR_FEDERATION_ABI, config.crossToNetwork.federation);
   } 
   
@@ -1277,7 +1278,7 @@ async function updateNetwork(newNetwork) {
       }
     } else {
       switch (newNetwork) {
-        case 1:
+        case 42161:
           config = ETH_CONFIG;
           break;
       }
@@ -1291,7 +1292,7 @@ async function updateNetwork(newNetwork) {
       $("#willReceiveToken").html("");
       throw new Error(
         `Wrong Network.<br /> Please connect your wallet to <b>${
-          isTestnet ? "Sepolia" : "Ethereum Mainnet"
+          isTestnet ? "Sepolia" : "Arbitrum One"
         }</b>`
       );
     }
@@ -1453,27 +1454,25 @@ SEPOLIA_CONFIG.crossToNetwork = HTR_TESTNET_CONFIG;
 
 // Replace with proper values contracts exist in mainnet
 let ETH_CONFIG = {
-  networkId: 1,
-  name: "ETH Mainnet",
-  bridge: "0x12ed69359919fc775bc2674860e8fe2d2b6a7b5d",
-  allowTokens: "0xe4aa0f414725c9322a1a9d80d469c5e234786653",
-  federation: "0x479f86ecbe766073d2712ef418aceb56d5362a2b",
-  explorer: "https://etherscan.io",
+  networkId: 42161,
+  name: "Arbitrum One",
+  bridge: "0xB85573bb0D1403Ed56dDF12540cc57662dfB3351",
+  allowTokens: "0x140ccdea1D96EcEDAdC2CD27713f452a50942A19",
+  federation: "0xE379DfB03E07ff4F1029698C219faB0B56a2bf67",
+  explorer: "https://arbiscan.io",
   explorerTokenTab: "#tokentxns",
-  confirmations: 5760,
-  confirmationTime: "24 hours",
-  secondsPerBlock: 15,
+  confirmations: 900,
+  confirmationTime: "30 minutes",
+  secondsPerBlock: 1,
 };
 let HTR_MAINNET_CONFIG = {
-  networkId: 30,
+  networkId: 31,
   name: "Hathor Mainnet",
-  bridge: "0x9d11937e2179dc5270aa86a3f8143232d6da0e69",
-  allowTokens: "0xe4aa0f414725c9322a1a9d80d469c5e234786653",
-  federation: "0xe37b6516f4fe2a27569a2751c1ad50f6340df369",
-  explorer: "https://explorer.hathor.network/",
-  explorerTokenTab: "?__tab=tokens%20transfers",
-  confirmations: 2880,
-  confirmationTime: "24 hours",
+  federation: "0xC2d2318dEa546D995189f14a0F9d39fB1f56D966",
+  explorer: "https://explorer.hathor.network",
+  explorerTokenTab: "token_detail",
+  confirmations: 2,
+  confirmationTime: "30 minutes",
   secondsPerBlock: 30,
   crossToNetwork: ETH_CONFIG,
 };
@@ -1500,59 +1499,24 @@ function loadAbi(abi, callback) {
 // --------- ABI  END --------------
 
 // --------- TOKENS --------------
-const HATHOR_NATIVE_TOKEN = {
-  token: "eHTR",
-  name: "Hathor Token",
-  icon: "https://s2.coinmarketcap.com/static/img/coins/64x64/5552.png",
-  11155111: {
-    symbol: "eHTR",
-    address: "0xBd8A2Feba2724f0463F7C803D80340F6B2596a1A",
-    decimals: 18,
-  },
-  31: {
-    symbol: "HTR",
-    address: "0xE3f0Ae350EE09657933CD8202A4dd563c5af941F",
-    hathorAddr: "00",
-    pureHtrAddress: "00",
-    decimals: 18,
-  },
-};
-
-const EVM_NATIVE_TOKEN = {
-  token: "SLT7",
-  name: "Storm Labs Token 7",
-  icon: "https://assets.coingecko.com/coins/images/279/standard/ethereum.png?1696501628",
-  11155111: {
-    symbol: "SLT7",
-    address: "0x97118caaE1F773a84462490Dd01FE7a3e7C4cdCd",
-    decimals: 18,
-  },
-  31: {
-    symbol: "hSLT7",
-    address: "0xAF8aD2C33c2c9a48CD906A4c5952A835FeB25696",
-    hathorAddr: "0x000002c993795c9ef5b894571af2277aaf344438c2f8608a50daccc6ace7c0a1",
-    pureHtrAddress: "000002c993795c9ef5b894571af2277aaf344438c2f8608a50daccc6ace7c0a1",
-    decimals: 18,
-  },
-};
 
 const USDC_TOKEN = {
   token: "USDC",
   name: "USDC",
   icon: "https://assets.coingecko.com/coins/images/6319/standard/usdc.png?1696506694",
-  11155111: {
+  42161: {
     symbol: "USDC",
-    address: "0x3E1Adb4e24a48B90ca10c28388cE733a6267BAc4",
+    address: "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
     decimals: 6,
   },
   31: {
     symbol: "hUSDC",
-    address: "0xA3FBbF66380dEEce7b7f7dC4BEA6267c05bB383D",
-    hathorAddr: "0x000000005c3e8f7118140bcfbf2032a1a0abbca3b47205731880bba6b87cba8f",
-    pureHtrAddress: "000000005c3e8f7118140bcfbf2032a1a0abbca3b47205731880bba6b87cba8f",
+    address: "0x66981C5a01db0Df1De03A5Af4493437B98F5D49c",
+    hathorAddr: "0x00003b17e8d656e4612926d5d2c5a4d5b3e4536e6bebc61c76cb71a65b81986f",
+    pureHtrAddress: "00003b17e8d656e4612926d5d2c5a4d5b3e4536e6bebc61c76cb71a65b81986f",
     decimals: 6,
   },
 };
 
-const TOKENS = [HATHOR_NATIVE_TOKEN, EVM_NATIVE_TOKEN, USDC_TOKEN];
+const TOKENS = [ USDC_TOKEN ];
 // --------- TOKENS  END --------------
