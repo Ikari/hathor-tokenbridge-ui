@@ -105,9 +105,9 @@ $(document).ready(function () {
       $(".selectedToken").html(token[config.networkId].symbol);
       let html = `<a target="_blank" href="${
         config.crossToNetwork.explorer
-      }/address/${token[
+      }/token_detail/${token[
         config.crossToNetwork.networkId
-      ].address.toLowerCase()}">`;
+      ].pureHtrAddress.toLowerCase()}">`;
       html += `\n   <span><img src="${token.icon}" class="token-logo"></span>${
         token[config.crossToNetwork.networkId].symbol
       }`;
