@@ -594,7 +594,7 @@ async function approveSpend() {
         amountBN.mul(new BN(101)).div(new BN(100)).toString()
       )
       .send(
-        { from: address, gasPrice: gasPrice, gas: 70_000 },
+        { from: address, gasPrice: gasPrice, gas: 300_000 },
         async (err, txHash) => {
           if (err) return reject(err);
           try {
@@ -727,7 +727,7 @@ async function crossToken() {
         bridgeContract.methods
           .receiveTokensTo(31, tokenAddress, hathorAddress, amountBN.toString())
           .send(
-            { from: address, gasPrice: gasPrice, gas: 200_000 },
+            { from: address, gasPrice: gasPrice, gas: 400_000 },
             async (err, txHash) => {
               console.log(err);
               console.log(txHash);
@@ -826,7 +826,7 @@ async function claimToken(to, amount, blockHash, logIndex, originChainId) {
       logIndex: logIndex,
       originChainId: originChainId,
     })
-    .send({ from: address, gasPrice: gasPrice, gas: 200_000 })
+    .send({ from: address, gasPrice: gasPrice, gas: 400_000 })
     .on('transactionHash', (hash) => {
       console.log(`txHash: ${hash}`);
     })
