@@ -214,14 +214,14 @@ if (!hathorFederationContract) {
   const approvedTransactionEvents = events.filter(
     (evt) =>
       evt.event === "ProposalSent" &&
-      evt.returnValues.receiver === walletAddress &&
+      evt.returnValues.receiver.toLowerCase() === walletAddress.toLowerCase() &&
       transactionTypes.includes(evt.returnValues.transactionType)
   );
   
   const proposedTransactionsEvents = events.filter(
     (evt) =>
       evt.event === "TransactionProposed" &&
-      evt.returnValues.receiver === walletAddress &&
+      evt.returnValues.receiver.toLowerCase() === walletAddress.toLowerCase() &&
       transactionTypes.includes(evt.returnValues.transactionType)
   );
 
@@ -267,7 +267,7 @@ async function getPendingClaims() {
   const crossTransferEvents = events.filter(
     (evt) =>
       (evt.event === "Voted" || evt.event === "Executed") &&
-      evt.returnValues.receiver === walletAddress
+      evt.returnValues.receiver.toLowerCase() === walletAddress.toLowerCase()
   );
 
   console.log(`Total voted events: ${crossTransferEvents.length}`);
