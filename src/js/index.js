@@ -9,7 +9,7 @@ let htr2EthPaginationObj = {};
 let poolingIntervalId = null;
 //Network configuration
 let config = null;
-let isTestnet = true;
+let isTestnet = window.location.href.includes("testnet");
 let allowTokensContract = null;
 let bridgeContract = null;
 let hathorFederationContract = null;
@@ -28,14 +28,18 @@ let feePercentageDivider = 10_000;
 let rLogin;
 let pollingLastBlockIntervalId = 0;
 let DateTime = luxon.DateTime;
-const host = "https://arbitrum-mainnet.infura.io/v3/399500b5679b442eb991fefee1c5bfdc";
+const evmHost = !isTestnet ? 
+  "https://arbitrum-mainnet.infura.io/v3/399500b5679b442eb991fefee1c5bfdc" :
+  "https://sepolia.infura.io/v3/399500b5679b442eb991fefee1c5bfdc";
+const hathorFederationHost = !isTestnet ? 
+  "https://arbitrum-mainnet.infura.io/v3/399500b5679b442eb991fefee1c5bfdc" :
+  "https://arb-sepolia.g.alchemy.com/v2/uZC_k6qzUFbIP5MigPnBCvry-n9M-gOV";
 
 $(document).ready(function () {
   new ClipboardJS(".copy");
   $('[data-toggle="tooltip"]').tooltip();
   $(".selectpicker").selectpicker();
 
-  isTestnet = window.location.href.includes("testnet");
   if (isTestnet) {
     $("#title").text("Hathor Golf Testnet bridge with Sepolia");
   }
@@ -58,12 +62,12 @@ $(document).ready(function () {
   $("#logIn").attr("onclick", "onLogInClick()");
 
   let rpc = {
-    42161: host,
+    42161: evmHost,
   };
   supportedChains = [42161];
   if (isTestnet) {
     rpc = {
-      11155111: "https://sepolia.infura.io/v3/399500b5679b442eb991fefee1c5bfdc",
+      11155111: evmHost,
     };
     supportedChains = [11155111];
   }
@@ -182,6 +186,8 @@ async function fillHathorToEvmTxs() {
         token[config.crossToNetwork.networkId].address === prpsl.originalTokenAddress
       );
 
+      if (!tk) return;
+
       TXN_Storage.addHathorTxn(address, config.crossToNetwork.name, {
         transactionHash: prpsl.transactionHash,
         token: tk[config.networkId].symbol,
@@ -199,7 +205,7 @@ async function fillHathorToEvmTxs() {
 
 async function getPendingHathorTxs(claims) {
 if (!hathorFederationContract) {
-    const prvdr = new Web3(new Web3.providers.HttpProvider(host));
+    const prvdr = new Web3(new Web3.providers.HttpProvider(hathorFederationHost));
     hathorFederationContract = new prvdr.eth.Contract(HATHOR_FEDERATION_ABI, config.crossToNetwork.federation);
   } 
   
@@ -594,7 +600,7 @@ async function approveSpend() {
         amountBN.mul(new BN(101)).div(new BN(100)).toString()
       )
       .send(
-        { from: address, gasPrice: gasPrice, gas: 300_000 },
+        { from: address, gasPrice: gasPrice, gas: 400_000 },
         async (err, txHash) => {
           if (err) return reject(err);
           try {
@@ -603,6 +609,7 @@ async function approveSpend() {
               resolve(receipt);
             }
           } catch (err) {
+            console.log(err);
             reject(err);
           }
           reject(
@@ -727,7 +734,7 @@ async function crossToken() {
         bridgeContract.methods
           .receiveTokensTo(31, tokenAddress, hathorAddress, amountBN.toString())
           .send(
-            { from: address, gasPrice: gasPrice, gas: 400_000 },
+            { from: address, gasPrice: gasPrice, gas: 600_000 },
             async (err, txHash) => {
               console.log(err);
               console.log(txHash);
@@ -1509,14 +1516,43 @@ const USDC_TOKEN = {
     address: "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
     decimals: 6,
   },
-  31: {
+  11155111: {
+    symbol: "USDC",
+    address: "0x3E1Adb4e24a48B90ca10c28388cE733a6267BAc4",
+    decimals: 6,
+  },
+  31: !isTestnet ? {
     symbol: "hUSDC",
     address: "0x66981C5a01db0Df1De03A5Af4493437B98F5D49c",
     hathorAddr: "0x00003b17e8d656e4612926d5d2c5a4d5b3e4536e6bebc61c76cb71a65b81986f",
     pureHtrAddress: "00003b17e8d656e4612926d5d2c5a4d5b3e4536e6bebc61c76cb71a65b81986f",
     decimals: 6,
+  } : {
+    symbol: "hUSDC",
+    address: "0xA3FBbF66380dEEce7b7f7dC4BEA6267c05bB383D",
+    hathorAddr: "0x000000005c3e8f7118140bcfbf2032a1a0abbca3b47205731880bba6b87cba8f",
+    pureHtrAddress: "000000005c3e8f7118140bcfbf2032a1a0abbca3b47205731880bba6b87cba8f",
+    decimals: 6,
   },
 };
 
-const TOKENS = [ USDC_TOKEN ];
+const EVM_NATIVE_TOKEN = {
+  token: "SLT7",
+  name: "Storm Labs Token 7",
+  icon: "https://assets.coingecko.com/coins/images/279/standard/ethereum.png?1696501628",
+  11155111: {
+    symbol: "SLT7",
+    address: "0x97118caaE1F773a84462490Dd01FE7a3e7C4cdCd",
+    decimals: 18,
+  },
+  31: isTestnet ? {
+    symbol: "hSLT7",
+    address: "0xAF8aD2C33c2c9a48CD906A4c5952A835FeB25696",
+    hathorAddr: "0x000002c993795c9ef5b894571af2277aaf344438c2f8608a50daccc6ace7c0a1",
+    pureHtrAddress: "000002c993795c9ef5b894571af2277aaf344438c2f8608a50daccc6ace7c0a1",
+    decimals: 18,
+  } : {},
+};
+
+const TOKENS = [ USDC_TOKEN, EVM_NATIVE_TOKEN ];
 // --------- TOKENS  END --------------
