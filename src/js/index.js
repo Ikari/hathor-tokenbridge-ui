@@ -803,7 +803,6 @@ function errorClaim(error) {
 }
 
 async function claimToken(to, amount, blockHash, logIndex, originChainId) {
-  clearInterval(poolingIntervalId);
   cleanAlertErrorClaim();
   cleanAlertSuccessClaim();
 
@@ -1128,6 +1127,10 @@ function showHtrTxsnTabe() {
 }
 
 function showActiveAddressTXNs() {
+
+  if (poolingIntervalId === null)
+    return;
+
   if (
     !address ||
     (!activeAddresseth2HtrTxns.length && !activeAddresshtr2EthTxns.length)
@@ -1234,7 +1237,9 @@ function setClaimButtons() {
     .querySelectorAll(".claim-button:not([disabled])")
     .forEach((button) => {
       button.addEventListener("click", (event) => {
-        event.preventDefault();
+        event.preventDefault();        
+        clearInterval(poolingIntervalId);
+        poolingIntervalId = null;
         button.setAttribute('disabled', 'true');
 
         const to = button.getAttribute("data-to");
@@ -1554,5 +1559,23 @@ const EVM_NATIVE_TOKEN = {
   } : {},
 };
 
-const TOKENS = [ USDC_TOKEN, EVM_NATIVE_TOKEN ];
+HATHOR_NATIVE_TOKEN = {
+  token: "eHTR",
+  name: "Hathor Token",
+  icon: "https://s2.coinmarketcap.com/static/img/coins/64x64/5552.png",
+  11155111: {
+    symbol: "eHTR",
+    address: "0xBd8A2Feba2724f0463F7C803D80340F6B2596a1A",
+    decimals: 18,
+  },
+  31: isTestnet ? {
+    symbol: "HTR",
+    address: "0xE3f0Ae350EE09657933CD8202A4dd563c5af941F",
+    hathorAddr: "00",
+    pureHtrAddress: "00",
+    decimals: 18,
+  } : {},
+};
+
+const TOKENS = [ USDC_TOKEN, EVM_NATIVE_TOKEN, HATHOR_NATIVE_TOKEN ];
 // --------- TOKENS  END --------------
