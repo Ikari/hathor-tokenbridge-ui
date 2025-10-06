@@ -1,0 +1,68 @@
+[
+    {
+        "indexed": true,
+        "internalType": "address",
+        "name": "federator",
+        "type": "address"
+    },
+    {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "transactionHash",
+        "type": "bytes32"
+    },
+    {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "transactionId",
+        "type": "bytes32"
+    },
+    {
+        "indexed": false,
+        "internalType": "address",
+        "name": "originalTokenAddress",
+        "type": "address"
+    },
+    {
+        "indexed": false,
+        "internalType": "address",
+        "name": "sender",
+        "type": "address"
+    },
+    {
+        "indexed": false,
+        "internalType": "address",
+        "name": "receiver",
+        "type": "address"
+    },
+    {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+    },
+    {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "blockHash",
+        "type": "bytes32"
+    },
+    {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "logIndex",
+        "type": "uint32"
+    },
+    {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "originChainId",
+        "type": "uint256"
+    },
+    {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "destinationChainId",
+        "type": "uint256"
+    }
+]
