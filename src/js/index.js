@@ -1556,11 +1556,11 @@ HATHOR_NATIVE_TOKEN = {
     pureHtrAddress: "00",
     decimals: 18,
   } : {
-    symbol: "",
-    address: "",
-    hathorAddr: "",
-    pureHtrAddress: "",
-    decimals: 0,
+    symbol: "HTR",
+    address: "0xE3f0Ae350EE09657933CD8202A4dd563c5af941F",
+    hathorAddr: "00",
+    pureHtrAddress: "00",
+    decimals: 18,
   },
 };
 
