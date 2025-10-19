@@ -1536,16 +1536,16 @@ const EVM_NATIVE_TOKEN = {
 };
 
 HATHOR_NATIVE_TOKEN = {
-  token: "wHTR",
+  token: "aHTR",
   name: "Hathor Token",
   icon: "https://s2.coinmarketcap.com/static/img/coins/64x64/5552.png",
   42161: {
-    symbol: "wHTR",
+    symbol: "aHTR",
     address: "0x87ca1aC7697c1240518b464B02E92A856D81Aee1",
     decimals: 18,
   },
   11155111: {
-    symbol: "wHTR",
+    symbol: "aHTR",
     address: "0x87ca1aC7697c1240518b464B02E92A856D81Aee1",
     decimals: 18,
   },
