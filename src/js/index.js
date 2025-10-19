@@ -211,7 +211,6 @@ async function fillHathorToEvmTxs() {
     TXN_Storage.addHathorTxn(address, config.crossToNetwork.name, {
       transactionHash: prpsl.transactionHash,
       token: tk[config.networkId].symbol,
-      // amount: prpsl.value ? prpsl.value / 100 : prpsl.amount / Math.pow(10, tk[config.networkId].decimals),
       amount: prpsl.amount / Math.pow(10, 18),
       sender: prpsl.sender,
       status: prpsl.status,
@@ -1537,12 +1536,12 @@ const EVM_NATIVE_TOKEN = {
 };
 
 HATHOR_NATIVE_TOKEN = {
-  token: "eHTR",
+  token: "wHTR",
   name: "Hathor Token",
   icon: "https://s2.coinmarketcap.com/static/img/coins/64x64/5552.png",
   11155111: {
-    symbol: "eHTR",
-    address: "0xBd8A2Feba2724f0463F7C803D80340F6B2596a1A",
+    symbol: "wHTR",
+    address: "0x87ca1aC7697c1240518b464B02E92A856D81Aee1",
     decimals: 18,
   },
   31: isTestnet ? {
@@ -1560,5 +1559,29 @@ HATHOR_NATIVE_TOKEN = {
   },
 };
 
-const TOKENS = [USDC_TOKEN, EVM_NATIVE_TOKEN, HATHOR_NATIVE_TOKEN];
+TOGGER_TOKEN = {
+  token: "HTOG3",
+  name: "Hathor Togger 3",
+  icon: "https://s2.coinmarketcap.com/static/img/coins/64x64/5552.png",
+  11155111: {
+    symbol: "hTOG3",
+    address: "0x245028F6D4C2F2527309EcaE5e82F0f9fb793b7b",
+    decimals: 18,
+  },
+  31: isTestnet ? {
+    symbol: "hTOG3",
+    address: "0x92Ef82Fd2Ae42aaF96b9cbE520a0AEeEF4490B7e",
+    hathorAddr: "0x00000187dbbc34f5dfd0dd894ea0758666c8f090922f9f5e347c4c3938a1dd1e",
+    pureHtrAddress: "00000187dbbc34f5dfd0dd894ea0758666c8f090922f9f5e347c4c3938a1dd1e",
+    decimals: 18,
+  } : {
+    symbol: "",
+    address: "",
+    hathorAddr: "",
+    pureHtrAddress: "",
+    decimals: 0,
+  },
+};
+
+const TOKENS = [USDC_TOKEN, EVM_NATIVE_TOKEN, HATHOR_NATIVE_TOKEN, TOGGER_TOKEN];
 // --------- TOKENS  END --------------
